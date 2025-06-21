@@ -1,0 +1,142 @@
+name: Update OpenCode Version
+
+on:
+  schedule:
+    # Run twice daily at 00:00 and 12:00 UTC
+    - cron: '0 0,12 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-for-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      updated: ${{ steps.check-updates.outputs.updated }}
+      new_version: ${{ steps.check-updates.outputs.new_version }}
+      pr_number: ${{ steps.create-pr.outputs.pull-request-number }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v22
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Check for OpenCode updates
+        id: check-updates
+        run: |
+          chmod +x ./scripts/check-opencode-version.sh
+          ./scripts/check-opencode-version.sh
+
+      - name: Create Pull Request if updates found
+        if: steps.check-updates.outputs.updated == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update OpenCode to version ${{ steps.check-updates.outputs.new_version }}"
+          title: "Update OpenCode to version ${{ steps.check-updates.outputs.new_version }}"
+          body: |
+            This PR updates the OpenCode flake to version ${{ steps.check-updates.outputs.new_version }}.
+            
+            Changes were automatically applied by the update-opencode workflow.
+          branch: update-opencode-${{ steps.check-updates.outputs.new_version }}
+          base: master
+
+  test-updated-flake:
+    needs: check-for-updates
+    if: needs.check-for-updates.outputs.updated == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+        with:
+          ref: update-opencode-${{ needs.check-for-updates.outputs.new_version }}
+          fetch-depth: 0
+
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v22
+
+      - name: Test flake build
+        run: nix build -L
+
+      - name: Add success comment to PR
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ needs.check-for-updates.outputs.pr_number }},
+              body: '✅ Flake successfully builds with the new version!'
+            })
+
+      - name: Add failure comment to PR
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ needs.check-for-updates.outputs.pr_number }},
+              body: '❌ Flake build failed with the new version. Please check the logs for details.'
+            })
+
+  auto-merge-pr:
+    needs: [check-for-updates, test-updated-flake]
+    if: needs.check-for-updates.outputs.updated == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-merge PR if tests passed
+        uses: pascalgn/automerge-action@v0.15.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_LABELS: ""
+          MERGE_METHOD: "squash"
+          MERGE_COMMIT_MESSAGE: "Update OpenCode to version ${{ needs.check-for-updates.outputs.new_version }}"
+          MERGE_FILTER_AUTHOR: "github-actions[bot]"
+          MERGE_DELETE_BRANCH: "true"
+          PULL_REQUEST: "${{ needs.check-for-updates.outputs.pr_number }}"
+
+  create-release:
+    needs: [check-for-updates, auto-merge-pr]
+    runs-on: ubuntu-latest
+    if: needs.check-for-updates.outputs.updated == 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x ./scripts/create-release.sh
+          ./scripts/create-release.sh ${{ needs.check-for-updates.outputs.new_version }}

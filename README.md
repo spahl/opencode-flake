@@ -66,6 +66,7 @@ This flake uses flake-parts for a modular structure:
 - `tag-version.sh`: Script for tagging git commits with version numbers
 - `update-version.sh`: Script for updating to a new OpenCode version
 - `.github/workflows/`: GitHub Actions workflows for CI/CD
+- `scripts/`: Helper scripts for automation
 
 ## Supported Systems
 
@@ -76,77 +77,62 @@ This flake uses flake-parts for a modular structure:
 
 ## Updating
 
-### Automatic Update
+### Automatic Updates via GitHub Actions
 
-The repository includes a script to automate version updates and CI workflows:
+This repository has automated workflows that keep the flake up-to-date with the latest OpenCode releases:
 
-```bash
-# Update to a new version
-./update-version.sh 0.1.118
+1. A GitHub Actions workflow checks for new OpenCode versions twice daily
+2. When a new version is detected, it automatically:
+   - Updates the flake.nix with the new version and package hashes
+   - Creates a pull request with the changes
+   - Tests that the updated flake builds correctly
+   - Auto-merges the PR if all tests pass
+   - Creates a GitHub release with the new version tag
 
-# Review and commit the changes
-git diff
-git commit -am "Update OpenCode flake to version 0.1.118"
+You can also manually trigger this workflow from the Actions tab in the GitHub repository.
 
-# Tag the new version
-./tag-version.sh
-```
-
-Additionally, a GitHub Actions workflow checks for new versions daily and automatically creates a PR when a new version is available.
-
-### Manual Update
+### Manual Updates
 
 To manually update the flake to a new version of OpenCode:
 
-1. Update the version variable in flake.nix
-2. Update the hashes in the packageHashes attribute set in package.nix:
+1. Run the update script:
+   ```bash
+   # Use the automated script
+   ./scripts/check-opencode-version.sh
+   ```
+
+2. Or update manually:
+   ```bash
+   # Update version in flake.nix
+   # Update hashes using nix-prefetch-url
+   nix-prefetch-url https://registry.npmjs.org/opencode-ai/-/opencode-ai-${version}.tgz
+   # (Repeat for other packages)
+   ```
+
+3. Verify the update:
+   ```bash
+   # Test the flake builds correctly
+   nix build
+   ```
+
+## Testing the Update Workflow
+
+For testing the update workflow locally:
 
 ```bash
-# Get correct hashes for each package
-nix-prefetch-url https://registry.npmjs.org/opencode-ai/-/opencode-ai-${version}.tgz
-nix-prefetch-url https://registry.npmjs.org/opencode-darwin-arm64/-/opencode-darwin-arm64-${version}.tgz
-nix-prefetch-url https://registry.npmjs.org/opencode-darwin-x64/-/opencode-darwin-x64-${version}.tgz
-nix-prefetch-url https://registry.npmjs.org/opencode-linux-arm64/-/opencode-linux-arm64-${version}.tgz
-nix-prefetch-url https://registry.npmjs.org/opencode-linux-x64/-/opencode-linux-x64-${version}.tgz
-
-# Convert hashes to SRI format (if needed)
-nix hash to-sri sha256:{hash}
+# Run the test workflow script
+./scripts/test-workflow.sh
 ```
 
-After updating, verify everything works:
-
-```bash
-# Make sure the package builds
-nix build
-
-# Run the checks to validate the updated package
-nix flake check
-```
-
-## Version Tagging
-
-To tag the current commit with the version from flake.nix:
-
-```bash
-# Tag the current commit
-./tag-version.sh
-
-# Tag a specific commit
-./tag-version.sh abc123f
-
-# Force overwrite an existing tag
-./tag-version.sh --force
-```
-
-The tag will be created as `v{version}` (e.g., `v0.1.117`).
+This script simulates what the GitHub Actions workflow will do, without creating actual releases.
 
 ## CI/CD Workflows
 
 This repository includes several GitHub Actions workflows:
 
-1. **Check OpenCode Version** - Runs daily to check for new versions of OpenCode and automatically creates a PR when a new version is available.
-2. **Test Nix Flake** - Runs on PRs and pushes to master to ensure the flake builds correctly on different platforms.
-3. **Create Release** - Automatically creates a GitHub release when a new tag is pushed.
+1. **Update OpenCode Version** - Runs twice daily to check for new versions of OpenCode and automatically creates PRs, tests, and releases.
+2. **Test Flake** - Runs on PRs to ensure the flake builds correctly.
+3. **Create Release** - Automatically creates a GitHub release when a new version is detected and merged.
 
 ## License
 
