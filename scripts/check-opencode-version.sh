@@ -5,7 +5,13 @@ set -eo pipefail
 
 # Function to get the current version from flake.nix
 get_current_version() {
-  grep -oP 'version = "\K[^"]+' flake.nix
+  if command -v ggrep &> /dev/null; then
+    # Use GNU grep if available (via homebrew)
+    ggrep -oP 'version = "\K[^"]+' flake.nix
+  else
+    # Fallback to sed for macOS compatibility
+    sed -n 's/.*version = "\([^"]*\)".*/\1/p' flake.nix
+  fi
 }
 
 # Function to get the latest version from npm
@@ -24,7 +30,12 @@ fetch_package_hash() {
   
   if [ "${TEST_MODE:-false}" = "true" ]; then
     # In test mode, return a fake hash
-    echo "sha256-$(echo "$package-$version-test-hash" | sha256sum | cut -d ' ' -f 1 | xxd -r -p | base64)"
+    if command -v sha256sum &> /dev/null; then
+      echo "sha256-$(echo "$package-$version-test-hash" | sha256sum | cut -d ' ' -f 1 | xxd -r -p | base64)"
+    else
+      # Fallback for macOS
+      echo "sha256-$(echo "$package-$version-test-hash" | shasum -a 256 | cut -d ' ' -f 1 | xxd -r -p | base64)"
+    fi
     return
   fi
   
@@ -45,15 +56,15 @@ update_flake() {
   local linux_arm64_hash=$(fetch_package_hash "opencode-linux-arm64" "$new_version")
   local linux_x64_hash=$(fetch_package_hash "opencode-linux-x64" "$new_version")
   
-  # Update version in flake.nix
-  sed -i "s/version = \"[^\"]*\"/version = \"$new_version\"/" flake.nix
+  # Update version in flake.nix (macOS compatible)
+  sed -i.bak "s/version = \"[^\"]*\"/version = \"$new_version\"/" flake.nix && rm flake.nix.bak
   
-  # Update hashes in flake.nix
-  sed -i "s|\"opencode-ai\" = \"[^\"]*\"|\"opencode-ai\" = \"$main_hash\"|" flake.nix
-  sed -i "s|\"opencode-darwin-arm64\" = \"[^\"]*\"|\"opencode-darwin-arm64\" = \"$darwin_arm64_hash\"|" flake.nix
-  sed -i "s|\"opencode-darwin-x64\" = \"[^\"]*\"|\"opencode-darwin-x64\" = \"$darwin_x64_hash\"|" flake.nix
-  sed -i "s|\"opencode-linux-arm64\" = \"[^\"]*\"|\"opencode-linux-arm64\" = \"$linux_arm64_hash\"|" flake.nix
-  sed -i "s|\"opencode-linux-x64\" = \"[^\"]*\"|\"opencode-linux-x64\" = \"$linux_x64_hash\"|" flake.nix
+  # Update hashes in flake.nix (macOS compatible)
+  sed -i.bak "s|\"opencode-ai\" = \"[^\"]*\"|\"opencode-ai\" = \"$main_hash\"|" flake.nix && rm flake.nix.bak
+  sed -i.bak "s|\"opencode-darwin-arm64\" = \"[^\"]*\"|\"opencode-darwin-arm64\" = \"$darwin_arm64_hash\"|" flake.nix && rm flake.nix.bak
+  sed -i.bak "s|\"opencode-darwin-x64\" = \"[^\"]*\"|\"opencode-darwin-x64\" = \"$darwin_x64_hash\"|" flake.nix && rm flake.nix.bak
+  sed -i.bak "s|\"opencode-linux-arm64\" = \"[^\"]*\"|\"opencode-linux-arm64\" = \"$linux_arm64_hash\"|" flake.nix && rm flake.nix.bak
+  sed -i.bak "s|\"opencode-linux-x64\" = \"[^\"]*\"|\"opencode-linux-x64\" = \"$linux_x64_hash\"|" flake.nix && rm flake.nix.bak
   
   echo "Flake updated to version $new_version"
 }

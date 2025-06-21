@@ -5,7 +5,13 @@ set -eo pipefail
 echo "===== Testing OpenCode update workflow ====="
 
 # Get current version from flake.nix
-CURRENT_VERSION=$(grep -oP 'version = "\K[^"]+' flake.nix)
+if command -v ggrep &> /dev/null; then
+  # Use GNU grep if available (via homebrew)
+  CURRENT_VERSION=$(ggrep -oP 'version = "\K[^"]+' flake.nix)
+else
+  # Fallback to sed for macOS compatibility
+  CURRENT_VERSION=$(sed -n 's/.*version = "\([^"]*\)".*/\1/p' flake.nix)
+fi
 echo "Current version in flake.nix: $CURRENT_VERSION"
 
 # Fetch latest version from npm
@@ -38,7 +44,12 @@ if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
   fi
   
   # Check if flake.nix was updated
-  NEW_VERSION=$(grep -oP 'version = "\K[^"]+' flake.nix)
+  if command -v ggrep &> /dev/null; then
+    NEW_VERSION=$(ggrep -oP 'version = "\K[^"]+' flake.nix)
+  else
+    NEW_VERSION=$(sed -n 's/.*version = "\([^"]*\)".*/\1/p' flake.nix)
+  fi
+  
   if [ "$NEW_VERSION" = "$TEST_VERSION" ]; then
     echo "✅ flake.nix was correctly updated to version $TEST_VERSION"
   else
