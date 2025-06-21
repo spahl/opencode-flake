@@ -65,6 +65,7 @@ This flake uses flake-parts for a modular structure:
 - `package.nix`: Contains the OpenCode package definition
 - `tag-version.sh`: Script for tagging git commits with version numbers
 - `update-version.sh`: Script for updating to a new OpenCode version
+- `.github/workflows/`: GitHub Actions workflows for CI/CD
 
 ## Supported Systems
 
@@ -77,7 +78,7 @@ This flake uses flake-parts for a modular structure:
 
 ### Automatic Update
 
-The repository includes a script to automate version updates:
+The repository includes a script to automate version updates and CI workflows:
 
 ```bash
 # Update to a new version
@@ -90,6 +91,8 @@ git commit -am "Update OpenCode flake to version 0.1.118"
 # Tag the new version
 ./tag-version.sh
 ```
+
+Additionally, a GitHub Actions workflow checks for new versions daily and automatically creates a PR when a new version is available.
 
 ### Manual Update
 
@@ -136,6 +139,14 @@ To tag the current commit with the version from flake.nix:
 ```
 
 The tag will be created as `v{version}` (e.g., `v0.1.117`).
+
+## CI/CD Workflows
+
+This repository includes several GitHub Actions workflows:
+
+1. **Check OpenCode Version** - Runs daily to check for new versions of OpenCode and automatically creates a PR when a new version is available.
+2. **Test Nix Flake** - Runs on PRs and pushes to master to ensure the flake builds correctly on different platforms.
+3. **Create Release** - Automatically creates a GitHub release when a new tag is pushed.
 
 ## License
 
