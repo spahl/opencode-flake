@@ -59,12 +59,12 @@ update_flake() {
   # Update version in flake.nix (macOS compatible)
   sed -i.bak "s/version = \"[^\"]*\"/version = \"$new_version\"/" flake.nix && rm flake.nix.bak
   
-  # Update hashes in flake.nix (macOS compatible)
-  sed -i.bak "s|\"opencode-ai\" = \"[^\"]*\"|\"opencode-ai\" = \"$main_hash\"|" flake.nix && rm flake.nix.bak
-  sed -i.bak "s|\"opencode-darwin-arm64\" = \"[^\"]*\"|\"opencode-darwin-arm64\" = \"$darwin_arm64_hash\"|" flake.nix && rm flake.nix.bak
-  sed -i.bak "s|\"opencode-darwin-x64\" = \"[^\"]*\"|\"opencode-darwin-x64\" = \"$darwin_x64_hash\"|" flake.nix && rm flake.nix.bak
-  sed -i.bak "s|\"opencode-linux-arm64\" = \"[^\"]*\"|\"opencode-linux-arm64\" = \"$linux_arm64_hash\"|" flake.nix && rm flake.nix.bak
-  sed -i.bak "s|\"opencode-linux-x64\" = \"[^\"]*\"|\"opencode-linux-x64\" = \"$linux_x64_hash\"|" flake.nix && rm flake.nix.bak
+  # Update hashes in package.nix (macOS compatible)
+  sed -i.bak "s|\"opencode-ai\" = \"[^\"]*\"|\"opencode-ai\" = \"$main_hash\"|" package.nix && rm package.nix.bak
+  sed -i.bak "s|\"opencode-darwin-arm64\" = \"[^\"]*\"|\"opencode-darwin-arm64\" = \"$darwin_arm64_hash\"|" package.nix && rm package.nix.bak
+  sed -i.bak "s|\"opencode-darwin-x64\" = \"[^\"]*\"|\"opencode-darwin-x64\" = \"$darwin_x64_hash\"|" package.nix && rm package.nix.bak
+  sed -i.bak "s|\"opencode-linux-arm64\" = \"[^\"]*\"|\"opencode-linux-arm64\" = \"$linux_arm64_hash\"|" package.nix && rm package.nix.bak
+  sed -i.bak "s|\"opencode-linux-x64\" = \"[^\"]*\"|\"opencode-linux-x64\" = \"$linux_x64_hash\"|" package.nix && rm package.nix.bak
   
   echo "Flake updated to version $new_version"
 }
