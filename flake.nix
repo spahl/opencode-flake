@@ -31,10 +31,13 @@
           ...
         }:
         let
+          # Define version once as the single source of truth
+          opencodeVersion = "0.1.157";
+          
           # Import the OpenCode package definition
           opencode = import ./package.nix {
             inherit pkgs system;
-            version = "0.1.157";
+            version = opencodeVersion;
           };
 
           # Script to verify opencode --version works
@@ -44,7 +47,7 @@
             text = ''
               echo "Checking OpenCode version..."
               VERSION=$(${opencode}/bin/opencode --version)
-              EXPECTED="0.1.117"
+              EXPECTED="${opencodeVersion}"
 
               if [[ "$VERSION" == "$EXPECTED" ]]; then
                 echo "✅ Version check passed: $VERSION"
