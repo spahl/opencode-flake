@@ -48,7 +48,7 @@ done
 extract_version() {
   # First try to extract using grep and sed
   local version
-  version=$(grep -A 3 "version = " flake.nix | grep -o '"[0-9]\+\.[0-9]\+\.[0-9]\+"' | head -1 | tr -d '"')
+  version=$(grep -A 3 "opencodeVersion = " flake.nix | grep -o '"[0-9]\+\.[0-9]\+\.[0-9]\+"' | head -1 | tr -d '"')
 
   # If that didn't work, try using nix eval
   if [[ -z "$version" ]]; then
