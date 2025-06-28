@@ -51,7 +51,7 @@ fi
 # Function to extract current version from flake.nix
 extract_current_version() {
   local version
-  version=$(grep -A 3 "version = " flake.nix | grep -o '"[0-9]\+\.[0-9]\+\.[0-9]\+"' | head -1 | tr -d '"')
+  version=$(grep -A 3 "opencodeVersion = " flake.nix | grep -o '"[0-9]\+\.[0-9]\+\.[0-9]\+"' | head -1 | tr -d '"')
   echo "$version"
 }
 
