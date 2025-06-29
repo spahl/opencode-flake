@@ -1,10 +1,18 @@
-name: Check OpenCode Version
+name: Check and Update OpenCode
 
 on:
   schedule:
     # Run every 6 hours
     - cron: '0 */6 * * *'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Specific version to update to (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   check-version:
@@ -26,9 +34,14 @@ jobs:
           echo "Current version: $CURRENT_VERSION"
           echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           
-          # Get latest version from npm registry
-          LATEST_VERSION=$(curl -s https://registry.npmjs.org/opencode-ai | jq -r '.["dist-tags"].latest')
-          echo "Latest version: $LATEST_VERSION"
+          # Use manual input version if provided, otherwise get latest from npm
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            LATEST_VERSION="${{ github.event.inputs.version }}"
+            echo "Using manual version: $LATEST_VERSION"
+          else
+            LATEST_VERSION=$(curl -s https://registry.npmjs.org/opencode-ai | jq -r '.["dist-tags"].latest')
+            echo "Latest version from npm: $LATEST_VERSION"
+          fi
           echo "latest-version=$LATEST_VERSION" >> $GITHUB_OUTPUT
           
           # Compare versions
@@ -39,3 +52,79 @@ jobs:
             echo "Already at latest version: $CURRENT_VERSION"
             echo "has-new-version=false" >> $GITHUB_OUTPUT
           fi
+
+  update-and-release:
+    needs: check-version
+    runs-on: ubuntu-latest
+    if: needs.check-version.outputs.has-new-version == 'true'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+      - name: Update OpenCode version
+        run: |
+          chmod +x ./update-version.sh
+          ./update-version.sh "${{ needs.check-version.outputs.latest-version }}"
+          
+      - name: Commit changes
+        run: |
+          NEW_VERSION="${{ needs.check-version.outputs.latest-version }}"
+          git add flake.nix package.nix
+          git commit -m "Update OpenCode to version $NEW_VERSION"
+          
+      - name: Create and push tag
+        run: |
+          chmod +x ./tag-version.sh
+          ./tag-version.sh
+          git push origin HEAD:${{ github.ref_name }}
+          git push origin "v${{ needs.check-version.outputs.latest-version }}"
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.check-version.outputs.latest-version }}
+          name: OpenCode Flake ${{ needs.check-version.outputs.latest-version }}
+          body: |
+            OpenCode Flake version ${{ needs.check-version.outputs.latest-version }}
+            
+            This release packages [OpenCode](https://github.com/sst/opencode) v${{ needs.check-version.outputs.latest-version }} as a Nix flake.
+            
+            ## Installation
+            
+            ```bash
+            # Run OpenCode directly
+            nix run github:AodhanHayter/opencode-flake
+            
+            # Or install to your profile
+            nix profile install github:AodhanHayter/opencode-flake
+            ```
+            
+            ## Using in a flake
+            
+            ```nix
+            {
+              inputs.opencode-flake.url = "github:AodhanHayter/opencode-flake";
+              
+              outputs = { self, nixpkgs, opencode-flake, ... }: {
+                # Use in your outputs
+                packages.x86_64-linux.opencode = opencode-flake.packages.x86_64-linux.default;
+              };
+            }
+            ```
+          draft: false
+          prerelease: false
