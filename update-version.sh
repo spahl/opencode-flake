@@ -122,16 +122,26 @@ fi
 # Update hashes in package.nix
 info "Updating hashes in package.nix..."
 
-# Create a temporary file directly
+# Use awk instead of sed for more reliable hash replacement
+awk -v main="$hash_main" \
+    -v darwin_arm64="$hash_darwin_arm64" \
+    -v darwin_x64="$hash_darwin_x64" \
+    -v linux_arm64="$hash_linux_arm64" \
+    -v linux_x64="$hash_linux_x64" '
 {
-  # Apply all sed transformations sequentially to the input file
-  sed -e "s|\"opencode-ai\" = \".*\";|\"opencode-ai\" = \"$hash_main\";|" \
-      -e "s|\"opencode-darwin-arm64\" = \".*\";|\"opencode-darwin-arm64\" = \"$hash_darwin_arm64\";|" \
-      -e "s|\"opencode-darwin-x64\" = \".*\";|\"opencode-darwin-x64\" = \"$hash_darwin_x64\";|" \
-      -e "s|\"opencode-linux-arm64\" = \".*\";|\"opencode-linux-arm64\" = \"$hash_linux_arm64\";|" \
-      -e "s|\"opencode-linux-x64\" = \".*\";|\"opencode-linux-x64\" = \"$hash_linux_x64\";|" \
-      "package.nix"
-} > package.nix.new
+    if (/^[[:space:]]*"opencode-ai" = ".*";/) {
+        gsub(/"opencode-ai" = "[^"]*";/, "\"opencode-ai\" = \"" main "\";")
+    } else if (/^[[:space:]]*"opencode-darwin-arm64" = ".*";/) {
+        gsub(/"opencode-darwin-arm64" = "[^"]*";/, "\"opencode-darwin-arm64\" = \"" darwin_arm64 "\";")  
+    } else if (/^[[:space:]]*"opencode-darwin-x64" = ".*";/) {
+        gsub(/"opencode-darwin-x64" = "[^"]*";/, "\"opencode-darwin-x64\" = \"" darwin_x64 "\";")
+    } else if (/^[[:space:]]*"opencode-linux-arm64" = ".*";/) {
+        gsub(/"opencode-linux-arm64" = "[^"]*";/, "\"opencode-linux-arm64\" = \"" linux_arm64 "\";")
+    } else if (/^[[:space:]]*"opencode-linux-x64" = ".*";/) {
+        gsub(/"opencode-linux-x64" = "[^"]*";/, "\"opencode-linux-x64\" = \"" linux_x64 "\";")
+    }
+    print
+}' "package.nix" > "package.nix.new"
 
 # Verify changes and replace file
 if cmp -s package.nix package.nix.new; then
