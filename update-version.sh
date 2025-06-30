@@ -72,7 +72,7 @@ fi
 
 # Update version in flake.nix
 info "Updating version in flake.nix..."
-sed -i.bak "s/version = \"$current_version\"/version = \"$new_version\"/" flake.nix
+sed -i.bak "s/opencodeVersion = \"$current_version\"/opencodeVersion = \"$new_version\"/" flake.nix
 rm flake.nix.bak
 
 # Fetch new package hashes
@@ -82,7 +82,7 @@ fetch_hash() {
   local package=$1
   local url="https://registry.npmjs.org/${package}/-/${package}-${new_version}.tgz"
 
-  info "Fetching hash for $package v$new_version..."
+  info "Fetching hash for $package v$new_version..." >&2
   if command -v nix-prefetch-url >/dev/null 2>&1; then
     hash=$(nix-prefetch-url "$url" 2>/dev/null)
     if [[ -n "$hash" ]]; then
@@ -101,8 +101,8 @@ fetch_hash() {
   fi
 
   # If nix-prefetch-url fails, inform user
-  warn "Could not fetch hash for $package v$new_version"
-  warn "Please manually run: nix-prefetch-url $url"
+  warn "Could not fetch hash for $package v$new_version" >&2
+  warn "Please manually run: nix-prefetch-url $url" >&2
   echo ""
   return 1
 }
@@ -122,16 +122,26 @@ fi
 # Update hashes in package.nix
 info "Updating hashes in package.nix..."
 
-# Create a temporary file directly
+# Use awk instead of sed for more reliable hash replacement
+awk -v main="$hash_main" \
+    -v darwin_arm64="$hash_darwin_arm64" \
+    -v darwin_x64="$hash_darwin_x64" \
+    -v linux_arm64="$hash_linux_arm64" \
+    -v linux_x64="$hash_linux_x64" '
 {
-  # Apply all sed transformations sequentially to the input file
-  sed -e "s|\"opencode-ai\" = \".*\"; # opencode-ai-.*\.tgz|\"opencode-ai\" = \"$hash_main\"; # opencode-ai-$new_version.tgz|" \
-      -e "s|\"opencode-darwin-arm64\" = \".*\"; # opencode-darwin-arm64-.*\.tgz|\"opencode-darwin-arm64\" = \"$hash_darwin_arm64\"; # opencode-darwin-arm64-$new_version.tgz|" \
-      -e "s|\"opencode-darwin-x64\" = \".*\"; # opencode-darwin-x64-.*\.tgz|\"opencode-darwin-x64\" = \"$hash_darwin_x64\"; # opencode-darwin-x64-$new_version.tgz|" \
-      -e "s|\"opencode-linux-arm64\" = \".*\"; # opencode-linux-arm64-.*\.tgz|\"opencode-linux-arm64\" = \"$hash_linux_arm64\"; # opencode-linux-arm64-$new_version.tgz|" \
-      -e "s|\"opencode-linux-x64\" = \".*\"; # opencode-linux-x64-.*\.tgz|\"opencode-linux-x64\" = \"$hash_linux_x64\"; # opencode-linux-x64-$new_version.tgz|" \
-      "package.nix"
-} > package.nix.new
+    if (/^[[:space:]]*"opencode-ai" = ".*";/) {
+        gsub(/"opencode-ai" = "[^"]*";/, "\"opencode-ai\" = \"" main "\";")
+    } else if (/^[[:space:]]*"opencode-darwin-arm64" = ".*";/) {
+        gsub(/"opencode-darwin-arm64" = "[^"]*";/, "\"opencode-darwin-arm64\" = \"" darwin_arm64 "\";")  
+    } else if (/^[[:space:]]*"opencode-darwin-x64" = ".*";/) {
+        gsub(/"opencode-darwin-x64" = "[^"]*";/, "\"opencode-darwin-x64\" = \"" darwin_x64 "\";")
+    } else if (/^[[:space:]]*"opencode-linux-arm64" = ".*";/) {
+        gsub(/"opencode-linux-arm64" = "[^"]*";/, "\"opencode-linux-arm64\" = \"" linux_arm64 "\";")
+    } else if (/^[[:space:]]*"opencode-linux-x64" = ".*";/) {
+        gsub(/"opencode-linux-x64" = "[^"]*";/, "\"opencode-linux-x64\" = \"" linux_x64 "\";")
+    }
+    print
+}' "package.nix" > "package.nix.new"
 
 # Verify changes and replace file
 if cmp -s package.nix package.nix.new; then
