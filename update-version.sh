@@ -125,11 +125,11 @@ info "Updating hashes in package.nix..."
 # Create a temporary file directly
 {
   # Apply all sed transformations sequentially to the input file
-  sed -e "s|\"opencode-ai\" = \".*\"; # opencode-ai-.*\.tgz|\"opencode-ai\" = \"$hash_main\"; # opencode-ai-$new_version.tgz|" \
-      -e "s|\"opencode-darwin-arm64\" = \".*\"; # opencode-darwin-arm64-.*\.tgz|\"opencode-darwin-arm64\" = \"$hash_darwin_arm64\"; # opencode-darwin-arm64-$new_version.tgz|" \
-      -e "s|\"opencode-darwin-x64\" = \".*\"; # opencode-darwin-x64-.*\.tgz|\"opencode-darwin-x64\" = \"$hash_darwin_x64\"; # opencode-darwin-x64-$new_version.tgz|" \
-      -e "s|\"opencode-linux-arm64\" = \".*\"; # opencode-linux-arm64-.*\.tgz|\"opencode-linux-arm64\" = \"$hash_linux_arm64\"; # opencode-linux-arm64-$new_version.tgz|" \
-      -e "s|\"opencode-linux-x64\" = \".*\"; # opencode-linux-x64-.*\.tgz|\"opencode-linux-x64\" = \"$hash_linux_x64\"; # opencode-linux-x64-$new_version.tgz|" \
+  sed -e "s|\"opencode-ai\" = \".*\";|\"opencode-ai\" = \"$hash_main\";|" \
+      -e "s|\"opencode-darwin-arm64\" = \".*\";|\"opencode-darwin-arm64\" = \"$hash_darwin_arm64\";|" \
+      -e "s|\"opencode-darwin-x64\" = \".*\";|\"opencode-darwin-x64\" = \"$hash_darwin_x64\";|" \
+      -e "s|\"opencode-linux-arm64\" = \".*\";|\"opencode-linux-arm64\" = \"$hash_linux_arm64\";|" \
+      -e "s|\"opencode-linux-x64\" = \".*\";|\"opencode-linux-x64\" = \"$hash_linux_x64\";|" \
       "package.nix"
 } > package.nix.new
 
