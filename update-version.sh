@@ -82,7 +82,7 @@ fetch_hash() {
   local package=$1
   local url="https://registry.npmjs.org/${package}/-/${package}-${new_version}.tgz"
 
-  info "Fetching hash for $package v$new_version..."
+  info "Fetching hash for $package v$new_version..." >&2
   if command -v nix-prefetch-url >/dev/null 2>&1; then
     hash=$(nix-prefetch-url "$url" 2>/dev/null)
     if [[ -n "$hash" ]]; then
@@ -101,8 +101,8 @@ fetch_hash() {
   fi
 
   # If nix-prefetch-url fails, inform user
-  warn "Could not fetch hash for $package v$new_version"
-  warn "Please manually run: nix-prefetch-url $url"
+  warn "Could not fetch hash for $package v$new_version" >&2
+  warn "Please manually run: nix-prefetch-url $url" >&2
   echo ""
   return 1
 }
