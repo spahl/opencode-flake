@@ -72,7 +72,7 @@ fi
 
 # Update version in flake.nix
 info "Updating version in flake.nix..."
-sed -i.bak "s/version = \"$current_version\"/version = \"$new_version\"/" flake.nix
+sed -i.bak "s/opencodeVersion = \"$current_version\"/opencodeVersion = \"$new_version\"/" flake.nix
 rm flake.nix.bak
 
 # Fetch new package hashes
