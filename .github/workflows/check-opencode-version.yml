@@ -76,23 +76,68 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
+      - name: Create update branch
+        id: create-branch
+        run: |
+          NEW_VERSION="${{ needs.check-version.outputs.latest-version }}"
+          BRANCH_NAME="update-opencode-${NEW_VERSION}-$(date +%s)"
+          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Creating branch: $BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME"
+          
       - name: Update OpenCode version
         run: |
           chmod +x ./update-version.sh
           ./update-version.sh "${{ needs.check-version.outputs.latest-version }}"
           
-      - name: Commit changes
+      - name: Commit changes to branch
         run: |
           NEW_VERSION="${{ needs.check-version.outputs.latest-version }}"
           git add flake.nix package.nix
           git commit -m "Update OpenCode to version $NEW_VERSION"
           
-      - name: Create and push tag
+      - name: Create tag on branch
         run: |
           chmod +x ./tag-version.sh
           ./tag-version.sh
-          git push origin HEAD:${{ github.ref_name }}
-          git push origin "v${{ needs.check-version.outputs.latest-version }}"
+          
+      - name: Merge branch to master
+        id: merge-branch
+        run: |
+          BRANCH_NAME="${{ steps.create-branch.outputs.branch-name }}"
+          echo "Switching to master and merging $BRANCH_NAME"
+          
+          # Switch to master and ensure it's up to date
+          git checkout ${{ github.ref_name }}
+          git pull origin ${{ github.ref_name }}
+          
+          # Attempt fast-forward merge
+          if git merge "$BRANCH_NAME" --ff-only; then
+            echo "Successfully merged $BRANCH_NAME to master"
+            echo "merge-success=true" >> $GITHUB_OUTPUT
+          else
+            echo "Fast-forward merge failed. Master may have changed during update."
+            echo "merge-success=false" >> $GITHUB_OUTPUT
+            echo "This could happen if:"
+            echo "1. Another workflow updated master during this run"
+            echo "2. Manual commits were made to master"
+            echo "The update branch $BRANCH_NAME contains the changes and can be manually reviewed."
+            exit 1
+          fi
+          
+      - name: Handle merge failure
+        if: failure() && steps.merge-branch.outputs.merge-success == 'false'
+        run: |
+          echo "Merge failed - the update was successful but couldn't be automatically merged."
+          echo "Branch ${{ steps.create-branch.outputs.branch-name }} contains the updates."
+          echo "Manual intervention may be required to resolve conflicts."
+          
+      - name: Push changes and tags
+        run: |
+          NEW_VERSION="${{ needs.check-version.outputs.latest-version }}"
+          echo "Pushing master and tags"
+          git push origin ${{ github.ref_name }}
+          git push origin "v$NEW_VERSION"
           
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -128,3 +173,15 @@ jobs:
             ```
           draft: false
           prerelease: false
+          
+      - name: Cleanup update branch
+        if: always()
+        run: |
+          BRANCH_NAME="${{ steps.create-branch.outputs.branch-name }}"
+          if [ -n "$BRANCH_NAME" ]; then
+            echo "Cleaning up branch: $BRANCH_NAME"
+            # Ensure we're on master before deleting branch
+            git checkout ${{ github.ref_name }} 2>/dev/null || true
+            # Delete the update branch
+            git branch -D "$BRANCH_NAME" 2>/dev/null || echo "Branch $BRANCH_NAME already deleted or doesn't exist"
+          fi
