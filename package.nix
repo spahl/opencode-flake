@@ -50,11 +50,11 @@ let
 
   # Define the hashes for each platform package
   packageHashes = {
-    "opencode-ai" = "sha256-+niinyXUCHkMe+YtYsPFyXjLyBhSX+4BlzFaVWI66MI=";
-    "opencode-darwin-arm64" = "sha256-tmwdZlwPDq1gDDPasp10vceCYFbVrolcwI0XsJ6dNbo=";
-    "opencode-darwin-x64" = "sha256-wLPlgWaFUz1/Lgzg1Lhze0GL69AkMPAnfq05TZu1Kow=";
-    "opencode-linux-arm64" = "sha256-UC0P6Sw8BrfBAb7ZbjMo9iUIAii7xivfkduigd2gkQk=";
-    "opencode-linux-x64" = "sha256-JRie2N7OVD9HXAMtyn5tifKNdCbgV96KY3wBzExmHvM=";
+    "opencode-ai" = "sha256-2I+2zJj0RtByQz7HveeR/Hr6EAsZ1zc/+96yO/xOM6Y=";
+    "opencode-darwin-arm64" = "sha256-feiD6cA7rSDgMpZyj/z9m0Atfj587pfYCcoT2vtqi/w=";
+    "opencode-darwin-x64" = "sha256-uWn5XNvcDmUa1oP7Vku5mkewcY2cbjWDTeY7deVR5tc=";
+    "opencode-linux-arm64" = "sha256-DIxUQkxjhl9VvANT1fjxC8XrIXlZeWEtwHbOlCS7i2k=";
+    "opencode-linux-x64" = "sha256-vitrCGgy8BjykrkWOy/WOh9xpFUqpt4OV8E1FB5bSF0=";
   };
 
 in
