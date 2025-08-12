@@ -32,7 +32,7 @@
         }:
         let
           # Define version once as the single source of truth
-          opencodeVersion = "0.4.18";
+          opencodeVersion = "0.4.22";
           
           # Import the OpenCode package definition
           opencode = import ./package.nix {
