@@ -1,0 +1,219 @@
+name: Update OpenCode with nix-update
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Specific version to update to (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update-opencode:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            
+      - name: Install nix-update
+        run: nix profile install nixpkgs#nix-update
+            
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get current version for comparison
+        id: current-version
+        run: |
+          CURRENT_VERSION=$(grep -o 'version = "[^"]*"' package.nix | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+          
+      - name: Update OpenCode with nix-update
+        id: update-check
+        run: |
+          echo "Running nix-update for OpenCode..."
+          
+          # Run nix-update using the configured updateScript
+          if nix-update opencode --use-update-script --build; then
+            # Check if any files were actually changed
+            if git diff --quiet; then
+              echo "No changes detected - already at latest version"
+              echo "has-changes=false" >> $GITHUB_OUTPUT
+            else
+              NEW_VERSION=$(grep -o 'version = "[^"]*"' package.nix | head -1 | sed 's/version = "\(.*\)"/\1/')
+              echo "Successfully updated to version: $NEW_VERSION"
+              echo "has-changes=true" >> $GITHUB_OUTPUT
+              echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "nix-update failed"
+            exit 1
+          fi
+
+      - name: Handle manual version input
+        if: github.event.inputs.version
+        id: manual-version
+        run: |
+          MANUAL_VERSION="${{ github.event.inputs.version }}"
+          CURRENT_VERSION="${{ steps.current-version.outputs.current-version }}"
+          
+          if [ "$CURRENT_VERSION" = "$MANUAL_VERSION" ]; then
+            echo "Already at requested version: $MANUAL_VERSION"
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Manual version specified: $MANUAL_VERSION"
+            # For manual versions, we'll run nix-update and then check if it updated to the desired version
+            NEW_VERSION=$(grep -o 'version = "[^"]*"' package.nix | head -1 | sed 's/version = "\(.*\)"/\1/')
+            if [ "$NEW_VERSION" = "$MANUAL_VERSION" ]; then
+              echo "Successfully updated to manual version: $MANUAL_VERSION"
+            else
+              echo "Warning: nix-update found version $NEW_VERSION, but manual version $MANUAL_VERSION was requested"
+            fi
+          fi
+
+      - name: Create update branch and commit changes
+        if: steps.update-check.outputs.has-changes == 'true'
+        id: create-branch
+        run: |
+          NEW_VERSION="${{ steps.update-check.outputs.new-version }}"
+          BRANCH_NAME="update-opencode-${NEW_VERSION}-$(date +%s)"
+          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          
+          echo "Creating branch: $BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME"
+          
+          echo "Committing changes"
+          git add .
+          git commit -m "$(cat <<EOF
+Update OpenCode to version $NEW_VERSION
+
+- Updated version and all platform-specific hashes
+- Updated subpackage dependencies (tui, node_modules)
+- Automated update via nix-update
+EOF
+)"
+          
+      - name: Create tag on branch
+        if: steps.update-check.outputs.has-changes == 'true'
+        run: |
+          NEW_VERSION="${{ steps.update-check.outputs.new-version }}"
+          echo "Creating tag v$NEW_VERSION"
+          git tag -a "v$NEW_VERSION" -m "OpenCode Flake version $NEW_VERSION"
+          
+      - name: Merge branch to master
+        if: steps.update-check.outputs.has-changes == 'true'
+        id: merge-branch
+        run: |
+          BRANCH_NAME="${{ steps.create-branch.outputs.branch-name }}"
+          echo "Switching to master and merging $BRANCH_NAME"
+          
+          # Switch to master and ensure it's up to date
+          git checkout ${{ github.ref_name }}
+          git pull origin ${{ github.ref_name }}
+          
+          # Attempt fast-forward merge
+          if git merge "$BRANCH_NAME" --ff-only; then
+            echo "Successfully merged $BRANCH_NAME to master"
+            echo "merge-success=true" >> $GITHUB_OUTPUT
+          else
+            echo "Fast-forward merge failed. Master may have changed during update."
+            echo "merge-success=false" >> $GITHUB_OUTPUT
+            echo "This could happen if:"
+            echo "1. Another workflow updated master during this run"
+            echo "2. Manual commits were made to master"
+            echo "The update branch $BRANCH_NAME contains the changes and can be manually reviewed."
+            exit 1
+          fi
+          
+      - name: Handle merge failure
+        if: failure() && steps.merge-branch.outputs.merge-success == 'false'
+        run: |
+          echo "Merge failed - the update was successful but couldn't be automatically merged."
+          echo "Branch ${{ steps.create-branch.outputs.branch-name }} contains the updates."
+          echo "Manual intervention may be required to resolve conflicts."
+          
+      - name: Push changes and tags
+        if: steps.update-check.outputs.has-changes == 'true'
+        run: |
+          NEW_VERSION="${{ steps.update-check.outputs.new-version }}"
+          echo "Pushing master and tags"
+          git push origin ${{ github.ref_name }}
+          git push origin "v$NEW_VERSION"
+          
+      - name: Create GitHub Release
+        if: steps.update-check.outputs.has-changes == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.update-check.outputs.new-version }}
+          name: OpenCode Flake ${{ steps.update-check.outputs.new-version }}
+          body: |
+            OpenCode Flake version ${{ steps.update-check.outputs.new-version }}
+            
+            This release packages [OpenCode](https://github.com/sst/opencode) v${{ steps.update-check.outputs.new-version }} as a Nix flake.
+            
+            **Automated Update**: This version was automatically updated using nix-update, ensuring all dependencies and hashes are correct.
+            
+            ## Installation
+            
+            ```bash
+            # Run OpenCode directly
+            nix run github:AodhanHayter/opencode-flake
+            
+            # Or install to your profile
+            nix profile install github:AodhanHayter/opencode-flake
+            ```
+            
+            ## Using in a flake
+            
+            ```nix
+            {
+              inputs.opencode-flake.url = "github:AodhanHayter/opencode-flake";
+              
+              outputs = { self, nixpkgs, opencode-flake, ... }: {
+                # Use in your outputs
+                packages.x86_64-linux.opencode = opencode-flake.packages.x86_64-linux.default;
+              };
+            }
+            ```
+          draft: false
+          prerelease: false
+          
+      - name: Cleanup update branch
+        if: always() && steps.create-branch.outputs.branch-name
+        run: |
+          BRANCH_NAME="${{ steps.create-branch.outputs.branch-name }}"
+          if [ -n "$BRANCH_NAME" ]; then
+            echo "Cleaning up branch: $BRANCH_NAME"
+            # Ensure we're on master before deleting branch
+            git checkout ${{ github.ref_name }} 2>/dev/null || true
+            # Delete the update branch
+            git branch -D "$BRANCH_NAME" 2>/dev/null || echo "Branch $BRANCH_NAME already deleted or doesn't exist"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.update-check.outputs.has-changes }}" = "true" ]; then
+            echo "✅ Successfully updated OpenCode to version ${{ steps.update-check.outputs.new-version }}"
+            echo "🏷️  Created tag and GitHub release"
+          else
+            echo "ℹ️  No updates needed - already at latest version"
+          fi
