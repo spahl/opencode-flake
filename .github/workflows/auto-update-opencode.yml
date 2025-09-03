@@ -1,0 +1,23 @@
+name: Auto Update OpenCode
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 */6 * * *'
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN || github.token }}
+          
+      - name: Test step
+        run: echo "Workflow is running successfully"
