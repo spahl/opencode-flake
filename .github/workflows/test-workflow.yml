@@ -1,0 +1,27 @@
+name: Test Workflow
+
+on:
+  push:
+    branches: [fix-workflow-schedule]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes for testing
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test Schedule
+        run: |
+          echo "✅ Workflow is running successfully!"
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Time: $(date)"
+          
+      - name: Check nix-update availability
+        run: |
+          nix --version || echo "Nix not available yet"
