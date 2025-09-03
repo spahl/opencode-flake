@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO="AodhanHayter/opencode-flake"
-WORKFLOW_FILE=".github/workflows/update-opencode-nix.yml"
+WORKFLOW_FILE=".github/workflows/update-opencode.yml"
 
 echo "GitHub Actions Scheduled Workflow Diagnostic"
 echo "==========================================="
@@ -34,11 +34,11 @@ echo ""
 # Check workflow runs
 echo "📊 Recent workflow runs:"
 echo "------------------------"
-gh run list --workflow=update-opencode-nix.yml --limit=5 --repo="$REPO" || echo "No recent runs found"
+gh run list --workflow=update-opencode.yml --limit=5 --repo="$REPO" || echo "No recent runs found"
 echo ""
 
 # Get last successful run
-LAST_RUN=$(gh run list --workflow=update-opencode-nix.yml --limit=1 --repo="$REPO" --json createdAt,status,conclusion --jq '.[0]' 2>/dev/null || echo "{}")
+LAST_RUN=$(gh run list --workflow=update-opencode.yml --limit=1 --repo="$REPO" --json createdAt,status,conclusion --jq '.[0]' 2>/dev/null || echo "{}")
 
 if [ "$LAST_RUN" != "{}" ]; then
     CREATED_AT=$(echo "$LAST_RUN" | jq -r '.createdAt')
@@ -89,10 +89,10 @@ echo ""
 echo "🔧 Quick Actions:"
 echo "-----------------"
 echo "1. Manually trigger workflow:"
-echo "   gh workflow run update-opencode-nix.yml --repo=$REPO"
+echo "   gh workflow run update-opencode.yml --repo=$REPO"
 echo ""
 echo "2. View workflow in browser:"
-echo "   gh workflow view update-opencode-nix.yml --web --repo=$REPO"
+echo "   gh workflow view update-opencode.yml --web --repo=$REPO"
 echo ""
 echo "3. Check GitHub Actions status:"
 echo "   https://www.githubstatus.com/history"
