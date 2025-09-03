@@ -1,9 +1,20 @@
 name: Update OpenCode with nix-update
 
+# IMPORTANT: GitHub scheduled workflows requirements:
+# 1. Only runs on the default branch (master/main)
+# 2. Automatically disabled after 60 days of repository inactivity
+# 3. Must be pushed to default branch before schedule activates
+# 4. All times are in UTC
+#
+# To reactivate after inactivity:
+# - Make any commit to the repository
+# - Or manually trigger using workflow_dispatch
+
 on:
   schedule:
-    # Run every 6 hours
-    - cron: '0 */6 * * *'
+    # Run every 6 hours at 15 minutes past (avoids peak times)
+    # Times: 00:15, 06:15, 12:15, 18:15 UTC
+    - cron: '15 */6 * * *'
   workflow_dispatch:
     inputs:
       version:

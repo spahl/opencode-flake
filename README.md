@@ -1,5 +1,7 @@
 # OpenCode Nix Flake
 
+[![Update OpenCode](https://github.com/AodhanHayter/opencode-flake/actions/workflows/update-opencode-nix.yml/badge.svg)](https://github.com/AodhanHayter/opencode-flake/actions/workflows/update-opencode-nix.yml)
+
 This repository packages [OpenCode](https://github.com/sst/opencode), a terminal-based AI assistant for developers, as a Nix flake. OpenCode is developed by SST (Serverless Stack) and provides powerful AI-powered coding assistance directly in your terminal.
 
 This flake automatically stays up-to-date with the latest OpenCode releases through automated workflows that run every 6 hours.
@@ -70,6 +72,12 @@ This repository features **fully automated maintenance**:
 - **Auto-deployment**: Updates are automatically tested, tagged, and released
 - **Zero-maintenance**: No manual intervention required for version updates
 
+### Workflow Status
+
+- Check the [workflow runs](https://github.com/AodhanHayter/opencode-flake/actions/workflows/update-opencode-nix.yml) to see recent updates
+- **Note**: Scheduled workflows are automatically disabled after 60 days of repository inactivity
+- To reactivate: Make any commit or [manually trigger the workflow](https://github.com/AodhanHayter/opencode-flake/actions/workflows/update-opencode-nix.yml)
+
 ### Manual Updates (if needed)
 
 ```bash
@@ -100,10 +108,11 @@ nix build && nix flake check
 ### GitHub Actions Workflows
 
 1. **Automated Updates** (`update-opencode-nix.yml`):
-   - Runs every 6 hours
+   - Runs every 6 hours (00:15, 06:15, 12:15, 18:15 UTC)
    - Uses `nix-update` for reliable version detection
    - Auto-creates releases and tags
    - Handles errors and cleanup automatically
+   - Can be manually triggered via GitHub Actions UI
 
 2. **Build Verification**:
    - Ensures packages build correctly across all platforms
