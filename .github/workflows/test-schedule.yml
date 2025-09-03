@@ -1,0 +1,15 @@
+name: Test Schedule
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes for testing
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test
+        run: echo "Workflow is running at $(date)"
