@@ -43,7 +43,7 @@ jobs:
             experimental-features = nix-command flakes
 
       - name: Install nix-update
-        run: nix profile install nixpkgs#nix-update
+        run: nix profile install github:Mic92/nix-update
 
       - name: Configure Git
         run: |
@@ -62,8 +62,8 @@ jobs:
         run: |
           echo "Running nix-update for OpenCode..."
 
-          # Run nix-update using the configured updateScript
-          if nix-update opencode --use-update-script --build; then
+          # Run nix-update for flakes - specify the flake attribute
+          if nix-update --flake opencode --build; then
             # Check if any files were actually changed
             if git diff --quiet; then
               echo "No changes detected - already at latest version"
