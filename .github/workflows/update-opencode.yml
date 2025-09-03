@@ -113,14 +113,11 @@ jobs:
           
           echo "Committing changes"
           git add .
-          git commit -m "$(cat <<EOF
-Update OpenCode to version $NEW_VERSION
+          git commit -m "Update OpenCode to version $NEW_VERSION
 
 - Updated version and all platform-specific hashes
 - Updated subpackage dependencies (tui, node_modules)
-- Automated update via nix-update
-EOF
-)"
+- Automated update via nix-update"
           
       - name: Create tag on branch
         if: steps.update-check.outputs.has-changes == 'true'
