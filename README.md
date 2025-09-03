@@ -1,7 +1,5 @@
 # OpenCode Nix Flake
 
-[![Update OpenCode](https://github.com/AodhanHayter/opencode-flake/actions/workflows/update-opencode-nix.yml/badge.svg)](https://github.com/AodhanHayter/opencode-flake/actions/workflows/update-opencode-nix.yml)
-
 This repository packages [OpenCode](https://github.com/sst/opencode), a terminal-based AI assistant for developers, as a Nix flake. OpenCode is developed by SST (Serverless Stack) and provides powerful AI-powered coding assistance directly in your terminal.
 
 This flake automatically stays up-to-date with the latest OpenCode releases through automated workflows that run every 6 hours.
