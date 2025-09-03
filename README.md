@@ -88,6 +88,8 @@ nix-update --flake opencode
 nix build && nix flake check
 ```
 
+**Note**: When OpenCode updates, `nix-update` may fail during the build phase if Go module dependencies have changed. This is normal - check the build logs for the correct `vendorHash` and update `package.nix` manually.
+
 ## Supported Systems
 
 - `aarch64-darwin` (macOS on Apple Silicon)

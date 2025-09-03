@@ -97,6 +97,11 @@ echo ""
 echo "3. Check GitHub Actions status:"
 echo "   https://www.githubstatus.com/history"
 echo ""
+echo "4. If workflow fails due to hash mismatch:"
+echo "   - Check the workflow logs for the correct vendorHash"
+echo "   - Update package.nix with the new hash manually"
+echo "   - This is normal when Go module dependencies change between versions"
+echo ""
 
 # Check repository activity
 echo "📊 Repository activity check:"
