@@ -75,8 +75,27 @@ jobs:
               echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
             fi
           else
-            echo "nix-update failed"
-            exit 1
+            echo "nix-update failed, checking if it's a vendorHash issue..."
+            
+            # Check if nix-update updated the version but build failed
+            if git diff --name-only | grep -q "package.nix"; then
+              echo "package.nix was modified, attempting to fix vendorHash..."
+              
+              # Run the vendor hash update script
+              if ./scripts/update-vendor-hash.sh; then
+                echo "Successfully updated vendorHash"
+                NEW_VERSION=$(grep -o 'version = "[^"]*"' package.nix | head -1 | sed 's/version = "\(.*\)"/\1/')
+                echo "has-changes=true" >> $GITHUB_OUTPUT
+                echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+                echo "vendor-hash-updated=true" >> $GITHUB_OUTPUT
+              else
+                echo "Failed to update vendorHash"
+                exit 1
+              fi
+            else
+              echo "nix-update failed without modifying package.nix"
+              exit 1
+            fi
           fi
 
       - name: Handle manual version input
@@ -113,10 +132,17 @@ jobs:
 
           echo "Committing changes"
           git add .
-          git commit -m "Update OpenCode to version $NEW_VERSION
-          - Updated version and all platform-specific hashes
-          - Updated subpackage dependencies (tui, node_modules)
-          - Automated update via nix-update"
+          
+          # Build commit message based on what was updated
+          COMMIT_MSG="Update OpenCode to version $NEW_VERSION"
+          COMMIT_MSG="${COMMIT_MSG}\n- Updated version and all platform-specific hashes"
+          if [ "${{ steps.update-check.outputs.vendor-hash-updated }}" = "true" ]; then
+            COMMIT_MSG="${COMMIT_MSG}\n- Fixed Go vendorHash for tui module"
+          fi
+          COMMIT_MSG="${COMMIT_MSG}\n- Updated subpackage dependencies (tui, node_modules)"
+          COMMIT_MSG="${COMMIT_MSG}\n- Automated update via nix-update"
+          
+          echo -e "$COMMIT_MSG" | git commit -F -
 
       - name: Create tag on branch
         if: steps.update-check.outputs.has-changes == 'true'
