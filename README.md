@@ -101,7 +101,6 @@ nix build && nix flake check
 - `package.nix`: Comprehensive OpenCode package definition with source builds
 - `local-models-dev.patch`: Patch for deterministic builds with local models
 - `.github/workflows/`: Automated CI/CD workflows
-- `tag-version.sh`: Version tagging utilities
 
 ## CI/CD & Automation
 
