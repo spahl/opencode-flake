@@ -22,13 +22,12 @@ let
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "opencode";
-  version = "0.8.0";
-
+  version = "0.9.5";
   src = fetchFromGitHub {
     owner = "sst";
     repo = "opencode";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-Bpxb9BLMxF2z42Ok/yVxEvVmmKxh+WWY2kHyCAHrCx4=";
+    hash = "sha256-NuVv/NToZGeKyYp2kIvN3j3x+R5ZUrd9VtzuZLaD268=";
   };
 
   tui = buildGoModule {
@@ -37,7 +36,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     modRoot = "packages/tui";
 
-    vendorHash = "sha256-de5FtS7iMrbmoLlIjdfrxs2OEI/f1dfU90GIJbvdO50=";
+    vendorHash = "sha256-KfK3qLt05J2N1DC25E2xyViR+aXsXQ/gEXZoiQ95UuM=";
 
     subPackages = [ "cmd/opencode" ];
 
@@ -102,7 +101,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # Required else we get errors that our fixed-output derivation references store paths
     dontFixup = true;
 
-    outputHash = "sha256-PmLO0aU2E7NlQ7WtoiCQzLRw4oKdKxS5JI571lvbhHo=";
+    outputHash = "sha256-JTfm8r4IiV69XIKRVWLqh/jRjqKHyl6tJs0ygbmFwyg=";
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
   };
@@ -114,7 +113,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   ];
 
   patches = [
-    # Patch to read models from local file instead of fetching from network
+    # Patch `packages/opencode/src/provider/models-macro.ts` to get contents of
+    # `_api.json` from the file bundled with `bun build`.
     ./local-models-dev.patch
   ];
 
@@ -135,6 +135,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       --define OPENCODE_TUI_PATH="'${finalAttrs.tui}/bin/tui'" \
       --define OPENCODE_VERSION="'${finalAttrs.version}'" \
       --compile \
+      --compile-exec-argv="--" \
       --target=${bun-target.${stdenvNoCC.hostPlatform.system}} \
       --outfile=opencode \
       ./packages/opencode/src/index.ts \
