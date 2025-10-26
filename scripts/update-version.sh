@@ -33,12 +33,36 @@ sed -i "s|hash = \"sha256-.*\";|hash = \"${HASH_SRI}\";|" package.nix
 echo -e "${YELLOW}Testing build...${NC}"
 if ! nix build --no-link 2>&1 | tee /tmp/nix-build.log; then
     if grep -q "got:" /tmp/nix-build.log; then
-        NEW_VENDOR_HASH=$(grep -Po "got:\s+\K\S+" /tmp/nix-build.log | tail -1)
-        echo -e "${YELLOW}Updating vendorHash to: ${NEW_VENDOR_HASH}${NC}"
-        sed -i "s|vendorHash = \".*\";|vendorHash = \"${NEW_VENDOR_HASH}\";|" package.nix
+        # Get the error line to determine what failed
+        ERROR_LINE=$(grep "hash mismatch in fixed-output derivation" /tmp/nix-build.log | tail -1)
+        NEW_HASH=$(grep -Po "got:\s+\K\S+" /tmp/nix-build.log | tail -1)
         
-        echo -e "${YELLOW}Rebuilding with new vendorHash...${NC}"
-        nix build --no-link
+        if echo "$ERROR_LINE" | grep -q "go-modules"; then
+            echo -e "${YELLOW}Updating vendorHash to: ${NEW_HASH}${NC}"
+            sed -i "s|vendorHash = \".*\";|vendorHash = \"${NEW_HASH}\";|" package.nix
+        elif echo "$ERROR_LINE" | grep -q "node_modules"; then
+            echo -e "${YELLOW}Updating outputHash to: ${NEW_HASH}${NC}"
+            sed -i "s|x86_64-linux = \".*\";|x86_64-linux = \"${NEW_HASH}\";|" package.nix
+        fi
+        
+        echo -e "${YELLOW}Rebuilding with new hash...${NC}"
+        if ! nix build --no-link 2>&1 | tee /tmp/nix-build.log; then
+            if grep -q "got:" /tmp/nix-build.log; then
+                ERROR_LINE=$(grep "hash mismatch in fixed-output derivation" /tmp/nix-build.log | tail -1)
+                NEW_HASH=$(grep -Po "got:\s+\K\S+" /tmp/nix-build.log | tail -1)
+                
+                if echo "$ERROR_LINE" | grep -q "go-modules"; then
+                    echo -e "${YELLOW}Updating vendorHash to: ${NEW_HASH}${NC}"
+                    sed -i "s|vendorHash = \".*\";|vendorHash = \"${NEW_HASH}\";|" package.nix
+                elif echo "$ERROR_LINE" | grep -q "node_modules"; then
+                    echo -e "${YELLOW}Updating outputHash to: ${NEW_HASH}${NC}"
+                    sed -i "s|x86_64-linux = \".*\";|x86_64-linux = \"${NEW_HASH}\";|" package.nix
+                fi
+                
+                echo -e "${YELLOW}Final rebuild...${NC}"
+                nix build --no-link
+            fi
+        fi
     else
         echo -e "${RED}Build failed for unknown reason. Check /tmp/nix-build.log${NC}"
         exit 1
