@@ -45,8 +45,25 @@ This flake builds OpenCode from source, copying the approach from the official n
 - **Multi-component build system**:
   - **Go TUI Component**: Builds the terminal UI (`packages/tui`) using `buildGoModule`
   - **TypeScript Core**: Uses Bun to compile the main application logic
+- **Bundled plugins**: Includes [opencode-skills](https://github.com/malhashemi/opencode-skills) plugin pre-installed
 - **Deterministic builds**: Includes a local models patch to avoid network dependencies during build
 - **Cross-platform support**: Supports all major platforms with proper platform-specific library linking
+
+### Included Plugins
+
+This package comes with the following plugins pre-installed:
+
+- **[opencode-skills](https://github.com/malhashemi/opencode-skills)** (v0.1.0): Implements Anthropic's Agent Skills Specification, allowing you to define and use custom skills with OpenCode
+
+To use the skills plugin, add it to your `opencode.json` or `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "plugin": ["opencode-skills"]
+}
+```
+
+Then create skills in `.opencode/skills/`, `~/.opencode/skills/`, or `~/.config/opencode/skills/`. See the [opencode-skills documentation](https://github.com/malhashemi/opencode-skills#readme) for details.
 
 ## Development
 
@@ -79,14 +96,17 @@ This repository features **fully automated maintenance**:
 ### Manual Updates (if needed)
 
 ```bash
-# Force update to latest version
+# Use the update script to automatically update OpenCode and opencode-skills
+./scripts/update-version.sh
+
+# Or manually with nix-update
 nix-update --flake opencode
 
 # Build and test
 nix build && nix flake check
 ```
 
-**Note**: When OpenCode updates, `nix-update` may fail during the build phase if Go module dependencies have changed. This is normal - check the build logs for the correct `vendorHash` and update `package.nix` manually.
+**Note**: The `update-version.sh` script automatically handles both OpenCode and opencode-skills plugin updates, including all necessary hash updates for dependencies. It will detect the latest versions from GitHub and update `package.nix` accordingly.
 
 ## Supported Systems
 

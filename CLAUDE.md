@@ -44,6 +44,7 @@ The flake implementation:
 - Unpacks both the main package (`opencode-ai`) and platform-specific package
 - Creates a proper FHS directory structure in the Nix store
 - Uses `makeWrapper` to set environment variables for the binary
+- Bundles the opencode-skills plugin (v0.1.0) into the compiled binary
 
 The flake creates:
 1. A package that can be installed in Nix environments
@@ -52,7 +53,7 @@ The flake creates:
 
 ## Current Version
 
-The flake currently packages OpenCode version 0.1.117.
+The flake currently packages OpenCode version 0.15.18 with opencode-skills plugin v0.1.0 bundled.
 
 ## Updating the Flake
 

@@ -10,6 +10,7 @@
   nix-update-script,
   testers,
   writableTmpDirAsHomeHook,
+  fetchurl,
 }:
 
 let
@@ -56,6 +57,64 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     '';
   };
 
+  opencode-skills-plugin = stdenvNoCC.mkDerivation {
+    pname = "opencode-skills";
+    version = "0.1.0";
+    
+    src = fetchurl {
+      url = "https://github.com/malhashemi/opencode-skills/archive/refs/tags/v0.1.0.tar.gz";
+      hash = "sha256-12XDmgMcEjTOrCkqYu9H3qAikIXoegy+Pfa5jfQ5pQU=";
+    };
+
+    impureEnvVars = lib.fetchers.proxyImpureEnvVars ++ [
+      "GIT_PROXY_COMMAND"
+      "SOCKS_SERVER"
+    ];
+
+    nativeBuildInputs = [
+      bun
+      writableTmpDirAsHomeHook
+    ];
+
+    dontConfigure = true;
+
+    buildPhase = ''
+      runHook preBuild
+
+      export BUN_INSTALL_CACHE_DIR=$(mktemp -d)
+
+      # Install dependencies
+      bun install \
+        --force \
+        --ignore-scripts \
+        --no-progress
+
+      # Build TypeScript to JavaScript using bun directly
+      bun --bun node_modules/typescript/bin/tsc
+
+      runHook postBuild
+    '';
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out
+      cp -R dist $out/
+      cp package.json $out/
+      cp README.md $out/ || true
+      cp LICENSE $out/ || true
+
+      runHook postInstall
+    '';
+
+    # Required else we get errors that our fixed-output derivation references store paths
+    dontFixup = true;
+
+    outputHash = "sha256-DP1hoQGjXCOG6qR6yI3Ih9kYUTj+pa5hqB2Miuiyy+8=";
+    outputHashAlgo = "sha256";
+    outputHashMode = "recursive";
+  };
+
   node_modules = stdenvNoCC.mkDerivation {
     pname = "opencode-node_modules";
     inherit (finalAttrs) version src;
@@ -97,6 +156,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       mkdir -p $out/node_modules
       cp -R ./node_modules $out
 
+      # Install opencode-skills plugin
+      mkdir -p $out/node_modules/opencode-skills
+      cp -R ${finalAttrs.opencode-skills-plugin}/* $out/node_modules/opencode-skills/
+
       runHook postInstall
     '';
 
@@ -105,7 +168,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     outputHash =
       {
-        x86_64-linux = "sha256-qvwsGBJmGQhH/zwIQwJlRwWE6n5zddjHfPD4l/O5RZU=";
+        x86_64-linux = "sha256-1cZ8dfmdxZmV4Oja1YT1nRch8ZttVYhC8w7MLuonpSk=";
       }
       .${stdenv.hostPlatform.system};
     outputHashAlgo = "sha256";
