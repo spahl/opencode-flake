@@ -259,9 +259,9 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     platforms = lib.platforms.unix;
     maintainers = [
       {
-        email = "aodhan.hayter@gmail.com";
-        github = "AodhanHayter";
-        name = "Aodhan Hayter";
+        email = "sebastien.pahl@gmail.com";
+        github = "spahl";
+        name = "Sebastien Pahl";
       }
     ];
     mainProgram = "opencode";

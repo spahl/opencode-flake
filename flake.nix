@@ -29,6 +29,7 @@
         { pkgs, system }:
         {
           opencode = pkgs.callPackage ./package.nix { };
+          openspec = pkgs.callPackage ./openspec.nix { };
           default = self.packages.${system}.opencode;
         }
       );
@@ -50,6 +51,7 @@
           default = pkgs.mkShell {
             buildInputs = with pkgs; [
               self.packages.${system}.opencode
+              self.packages.${system}.openspec
             ];
           };
         }
@@ -60,6 +62,8 @@
         {
           opencode = self.packages.${system}.opencode;
           opencode-version = self.packages.${system}.opencode.passthru.tests.version;
+          openspec = self.packages.${system}.openspec;
+          openspec-version = self.packages.${system}.openspec.passthru.tests.version;
         }
       );
     };

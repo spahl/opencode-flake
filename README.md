@@ -39,15 +39,23 @@ nix profile install github:aodhanhayter/opencode-flake
 
 ## Packaging
 
-This flake builds OpenCode from source, copying the approach from the official nixpkgs build. If you don't require the latest version of opencode, I recommend using the official nixpkgs version as it will likely be more stable and well tested.
+This flake builds both OpenCode and OpenSpec from source, using clean, minimal derivations following nixpkgs patterns.
 
-- **Source-based builds**: Fetches source code directly from the [sst/opencode](https://github.com/sst/opencode) repository
+### OpenCode
+Builds from the [sst/opencode](https://github.com/sst/opencode) repository:
 - **Multi-component build system**:
   - **Go TUI Component**: Builds the terminal UI (`packages/tui`) using `buildGoModule`
   - **TypeScript Core**: Uses Bun to compile the main application logic
 - **Bundled plugins**: Includes [opencode-skills](https://github.com/malhashemi/opencode-skills) plugin pre-installed
 - **Deterministic builds**: Includes a local models patch to avoid network dependencies during build
 - **Cross-platform support**: Supports all major platforms with proper platform-specific library linking
+
+### OpenSpec
+Builds from the [Fission-AI/OpenSpec](https://github.com/Fission-AI/OpenSpec) repository:
+- **TypeScript CLI**: Compiles TypeScript to standalone binary using Bun
+- **Native OpenCode integration**: Automatically generates slash commands in `.opencode/command/`
+- **Spec-driven workflow**: Create proposals, implement changes, and archive completed work
+- **Cross-platform support**: Works on all major platforms
 
 ### Included Plugins
 
@@ -118,9 +126,11 @@ nix build && nix flake check
 ## Repository Structure
 
 - `flake.nix`: Clean, minimal flake following nixpkgs patterns
-- `package.nix`: Comprehensive OpenCode package definition with source builds
+- `package.nix`: OpenCode package definition with source builds
+- `openspec.nix`: OpenSpec package definition with TypeScript compilation
 - `local-models-dev.patch`: Patch for deterministic builds with local models
 - `.github/workflows/`: Automated CI/CD workflows
+- `scripts/`: Update and maintenance scripts
 
 ## CI/CD & Automation
 
