@@ -22,6 +22,14 @@ echo -e "${GREEN}Latest opencode-skills version: ${LATEST_PLUGIN_VERSION}${NC}"
 CURRENT_PLUGIN_VERSION=$(grep -A 2 "opencode-skills-plugin" package.nix | grep -Po 'version = "\K[^"]+')
 echo -e "Current opencode-skills version: ${CURRENT_PLUGIN_VERSION}"
 
+echo -e "${YELLOW}Fetching latest OpenSpec version from GitHub...${NC}"
+
+LATEST_OPENSPEC_VERSION=$(curl -s https://api.github.com/repos/Fission-AI/OpenSpec/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+echo -e "${GREEN}Latest OpenSpec version: ${LATEST_OPENSPEC_VERSION}${NC}"
+
+CURRENT_OPENSPEC_VERSION=$(grep -Po '(?<=^  version = ")[^"]+' openspec.nix | head -1)
+echo -e "Current OpenSpec version: ${CURRENT_OPENSPEC_VERSION}"
+
 NEEDS_UPDATE=false
 if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
     echo -e "${YELLOW}OpenCode needs update: ${CURRENT_VERSION} → ${LATEST_VERSION}${NC}"
@@ -30,6 +38,11 @@ fi
 
 if [ "$CURRENT_PLUGIN_VERSION" != "$LATEST_PLUGIN_VERSION" ]; then
     echo -e "${YELLOW}opencode-skills needs update: ${CURRENT_PLUGIN_VERSION} → ${LATEST_PLUGIN_VERSION}${NC}"
+    NEEDS_UPDATE=true
+fi
+
+if [ "$CURRENT_OPENSPEC_VERSION" != "$LATEST_OPENSPEC_VERSION" ]; then
+    echo -e "${YELLOW}OpenSpec needs update: ${CURRENT_OPENSPEC_VERSION} → ${LATEST_OPENSPEC_VERSION}${NC}"
     NEEDS_UPDATE=true
 fi
 
@@ -77,6 +90,20 @@ if [ "$CURRENT_PLUGIN_VERSION" != "$LATEST_PLUGIN_VERSION" ]; then
     ' package.nix > package.nix.tmp && mv package.nix.tmp package.nix
 fi
 
+# Update OpenSpec if needed
+if [ "$CURRENT_OPENSPEC_VERSION" != "$LATEST_OPENSPEC_VERSION" ]; then
+    echo -e "${YELLOW}Fetching OpenSpec source hash...${NC}"
+    OPENSPEC_HASH_OLD=$(nix-prefetch-url --unpack "https://github.com/Fission-AI/OpenSpec/archive/refs/tags/v${LATEST_OPENSPEC_VERSION}.tar.gz" 2>/dev/null)
+    OPENSPEC_HASH_SRI=$(nix hash to-sri sha256:${OPENSPEC_HASH_OLD} 2>&1 | grep -Po 'sha256-\S+')
+    echo -e "${GREEN}New OpenSpec hash: ${OPENSPEC_HASH_SRI}${NC}"
+
+    echo -e "${YELLOW}Updating OpenSpec version in openspec.nix...${NC}"
+    # Update the version (first occurrence)
+    sed -i "0,/version = \".*\";/s//version = \"${LATEST_OPENSPEC_VERSION}\";/" openspec.nix
+    # Update the hash in fetchFromGitHub for openspec
+    sed -i "0,/hash = \"sha256-.*\";/s//hash = \"${OPENSPEC_HASH_SRI}\";/" openspec.nix
+fi
+
 echo -e "${YELLOW}Testing build (this may take a while)...${NC}"
 
 # Function to handle hash mismatches
@@ -103,41 +130,67 @@ update_hash_from_error() {
                 {print}
             ' package.nix > package.nix.tmp && mv package.nix.tmp package.nix
             return 0
-        elif echo "$ERROR_LINE" | grep -q "node_modules"; then
-            echo -e "${YELLOW}Updating node_modules outputHash to: ${NEW_HASH}${NC}"
-            sed -i "s|x86_64-linux = \".*\";|x86_64-linux = \"${NEW_HASH}\";|" package.nix
+        elif echo "$ERROR_LINE" | grep -q "opencode-node_modules"; then
+            echo -e "${YELLOW}Updating opencode node_modules outputHash to: ${NEW_HASH}${NC}"
+            sed -i "0,/x86_64-linux = \".*\";/s//x86_64-linux = \"${NEW_HASH}\";/" package.nix
+            return 0
+        elif echo "$ERROR_LINE" | grep -q "openspec-node_modules"; then
+            echo -e "${YELLOW}Updating openspec node_modules outputHash to: ${NEW_HASH}${NC}"
+            sed -i "0,/x86_64-linux = \".*\";/s//x86_64-linux = \"${NEW_HASH}\";/" openspec.nix
             return 0
         fi
     fi
     return 1
 }
 
-# Try building up to 3 times to handle cascading hash updates
-MAX_ATTEMPTS=3
+# Try building up to 5 times to handle cascading hash updates (OpenCode + OpenSpec)
+MAX_ATTEMPTS=5
 for attempt in $(seq 1 $MAX_ATTEMPTS); do
     echo -e "${YELLOW}Build attempt ${attempt}/${MAX_ATTEMPTS}...${NC}"
-    if nix build --no-link 2>&1 | tee /tmp/nix-build.log; then
-        echo -e "${GREEN}Build succeeded!${NC}"
+    
+    # Build both packages
+    BUILD_SUCCESS=true
+    if ! nix build .#opencode --no-link 2>&1 | tee /tmp/nix-build-opencode.log; then
+        BUILD_SUCCESS=false
+        cp /tmp/nix-build-opencode.log /tmp/nix-build.log
+    fi
+    
+    if ! nix build .#openspec --no-link 2>&1 | tee /tmp/nix-build-openspec.log; then
+        BUILD_SUCCESS=false
+        cp /tmp/nix-build-openspec.log /tmp/nix-build.log
+    fi
+    
+    if [ "$BUILD_SUCCESS" = true ]; then
+        echo -e "${GREEN}Both packages built successfully!${NC}"
         break
     else
         if [ $attempt -eq $MAX_ATTEMPTS ]; then
-            echo -e "${RED}Build failed after ${MAX_ATTEMPTS} attempts. Check /tmp/nix-build.log${NC}"
+            echo -e "${RED}Build failed after ${MAX_ATTEMPTS} attempts. Check /tmp/nix-build*.log${NC}"
             exit 1
         fi
         
         if ! update_hash_from_error; then
-            echo -e "${RED}Build failed for unknown reason. Check /tmp/nix-build.log${NC}"
+            echo -e "${RED}Build failed for unknown reason. Check /tmp/nix-build*.log${NC}"
             exit 1
         fi
     fi
 done
 
-echo -e "${YELLOW}Verifying version...${NC}"
-BUILT_VERSION=$(nix run . -- --version 2>/dev/null | grep -v warning)
+echo -e "${YELLOW}Verifying OpenCode version...${NC}"
+BUILT_VERSION=$(nix run .#opencode -- --version 2>/dev/null | grep -v warning)
 if [ "$BUILT_VERSION" = "$LATEST_VERSION" ]; then
-    echo -e "${GREEN}✓ Version verified: ${BUILT_VERSION}${NC}"
+    echo -e "${GREEN}✓ OpenCode version verified: ${BUILT_VERSION}${NC}"
 else
-    echo -e "${RED}✗ Version mismatch! Expected ${LATEST_VERSION}, got ${BUILT_VERSION}${NC}"
+    echo -e "${RED}✗ OpenCode version mismatch! Expected ${LATEST_VERSION}, got ${BUILT_VERSION}${NC}"
+    exit 1
+fi
+
+echo -e "${YELLOW}Verifying OpenSpec version...${NC}"
+BUILT_OPENSPEC_VERSION=$(nix run .#openspec -- --version 2>/dev/null | grep -v warning)
+if [ "$BUILT_OPENSPEC_VERSION" = "$LATEST_OPENSPEC_VERSION" ]; then
+    echo -e "${GREEN}✓ OpenSpec version verified: ${BUILT_OPENSPEC_VERSION}${NC}"
+else
+    echo -e "${RED}✗ OpenSpec version mismatch! Expected ${LATEST_OPENSPEC_VERSION}, got ${BUILT_OPENSPEC_VERSION}${NC}"
     exit 1
 fi
 
@@ -150,19 +203,43 @@ else
 fi
 
 echo -e "${GREEN}Successfully updated packages!${NC}"
+UPDATES=()
 if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
     echo -e "${GREEN}  OpenCode: ${CURRENT_VERSION} → ${LATEST_VERSION}${NC}"
+    UPDATES+=("OpenCode to ${LATEST_VERSION}")
 fi
 if [ "$CURRENT_PLUGIN_VERSION" != "$LATEST_PLUGIN_VERSION" ]; then
     echo -e "${GREEN}  opencode-skills: ${CURRENT_PLUGIN_VERSION} → ${LATEST_PLUGIN_VERSION}${NC}"
+    UPDATES+=("opencode-skills to ${LATEST_PLUGIN_VERSION}")
+fi
+if [ "$CURRENT_OPENSPEC_VERSION" != "$LATEST_OPENSPEC_VERSION" ]; then
+    echo -e "${GREEN}  OpenSpec: ${CURRENT_OPENSPEC_VERSION} → ${LATEST_OPENSPEC_VERSION}${NC}"
+    UPDATES+=("OpenSpec to ${LATEST_OPENSPEC_VERSION}")
 fi
 
 echo -e "${YELLOW}Don't forget to commit the changes:${NC}"
-echo -e "  git add package.nix"
-if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ] && [ "$CURRENT_PLUGIN_VERSION" != "$LATEST_PLUGIN_VERSION" ]; then
-    echo -e "  git commit -m 'Update OpenCode to ${LATEST_VERSION} and opencode-skills to ${LATEST_PLUGIN_VERSION}'"
-elif [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
-    echo -e "  git commit -m 'Update OpenCode to ${LATEST_VERSION}'"
+FILES_TO_ADD=()
+[ "$CURRENT_VERSION" != "$LATEST_VERSION" ] || [ "$CURRENT_PLUGIN_VERSION" != "$LATEST_PLUGIN_VERSION" ] && FILES_TO_ADD+=("package.nix")
+[ "$CURRENT_OPENSPEC_VERSION" != "$LATEST_OPENSPEC_VERSION" ] && FILES_TO_ADD+=("openspec.nix")
+
+if [ ${#FILES_TO_ADD[@]} -gt 0 ]; then
+    echo -e "  git add ${FILES_TO_ADD[*]}"
+fi
+
+if [ ${#UPDATES[@]} -eq 1 ]; then
+    echo -e "  git commit -m 'Update ${UPDATES[0]}'"
+elif [ ${#UPDATES[@]} -eq 2 ]; then
+    echo -e "  git commit -m 'Update ${UPDATES[0]} and ${UPDATES[1]}'"
 else
-    echo -e "  git commit -m 'Update opencode-skills to ${LATEST_PLUGIN_VERSION}'"
+    COMMIT_MSG="Update "
+    for i in "${!UPDATES[@]}"; do
+        if [ $i -eq 0 ]; then
+            COMMIT_MSG+="${UPDATES[$i]}"
+        elif [ $i -eq $((${#UPDATES[@]} - 1)) ]; then
+            COMMIT_MSG+=", and ${UPDATES[$i]}"
+        else
+            COMMIT_MSG+=", ${UPDATES[$i]}"
+        fi
+    done
+    echo -e "  git commit -m '${COMMIT_MSG}'"
 fi
