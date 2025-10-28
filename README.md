@@ -7,8 +7,14 @@ This flake automatically stays up-to-date with the latest OpenCode releases thro
 ## Quick Start
 
 ```bash
-# Run directly from the flake
+# Run OpenCode directly from the flake
 nix run github:aodhanhayter/opencode-flake
+
+# Run OpenSpec
+nix run github:aodhanhayter/opencode-flake#openspec
+
+# Build opencode.nvim plugin
+nix build github:aodhanhayter/opencode-flake#opencode-nvim
 
 # Check the version
 nix run github:aodhanhayter/opencode-flake -- --version
@@ -21,7 +27,14 @@ nix profile install github:aodhanhayter/opencode-flake
 
 ### Profile Installation
 ```bash
+# Install OpenCode (default)
 nix profile install github:aodhanhayter/opencode-flake
+
+# Install OpenSpec
+nix profile install github:aodhanhayter/opencode-flake#openspec
+
+# Install opencode.nvim plugin
+nix profile install github:aodhanhayter/opencode-flake#opencode-nvim
 ```
 
 ### NixOS/Home Manager Configuration
@@ -30,10 +43,26 @@ nix profile install github:aodhanhayter/opencode-flake
   inputs.opencode-flake.url = "github:aodhanhayter/opencode-flake";
 
   # In your configuration:
-  environment.systemPackages = [ inputs.opencode-flake.packages.${pkgs.system}.default ];
+  environment.systemPackages = [ 
+    inputs.opencode-flake.packages.${pkgs.system}.opencode
+    inputs.opencode-flake.packages.${pkgs.system}.openspec
+  ];
 
   # Or in home-manager:
-  home.packages = [ inputs.opencode-flake.packages.${pkgs.system}.default ];
+  home.packages = [ 
+    inputs.opencode-flake.packages.${pkgs.system}.opencode
+    inputs.opencode-flake.packages.${pkgs.system}.openspec
+  ];
+
+  # For Neovim integration:
+  programs.neovim.plugins = [ 
+    inputs.opencode-flake.packages.${pkgs.system}.opencode-nvim 
+  ];
+  
+  # Or in nixvim:
+  programs.nixvim.extraPlugins = [ 
+    inputs.opencode-flake.packages.${pkgs.system}.opencode-nvim 
+  ];
 }
 ```
 
@@ -76,13 +105,15 @@ Then create skills in `.opencode/skills/`, `~/.opencode/skills/`, or `~/.config/
 ## Development
 
 ```bash
-# Enter development shell with OpenCode available
+# Enter development shell with all packages available
 nix develop github:aodhanhayter/opencode-flake
 
 # Build locally
-nix build
+nix build                    # OpenCode (default)
+nix build .#openspec         # OpenSpec
+nix build .#opencode-nvim    # opencode.nvim plugin
 
-# Test the package
+# Test all packages
 nix flake check
 ```
 
@@ -128,9 +159,11 @@ nix build && nix flake check
 - `flake.nix`: Clean, minimal flake following nixpkgs patterns
 - `package.nix`: OpenCode package definition with source builds
 - `openspec.nix`: OpenSpec package definition with TypeScript compilation
+- `opencode-nvim.nix`: opencode.nvim Neovim plugin package definition
 - `local-models-dev.patch`: Patch for deterministic builds with local models
 - `.github/workflows/`: Automated CI/CD workflows
 - `scripts/`: Update and maintenance scripts
+- `AGENTS.md`: Comprehensive development guide for contributors
 
 ## CI/CD & Automation
 

@@ -30,6 +30,7 @@
         {
           opencode = pkgs.callPackage ./package.nix { };
           openspec = pkgs.callPackage ./openspec.nix { };
+          opencode-nvim = pkgs.callPackage ./opencode-nvim.nix { };
           default = self.packages.${system}.opencode;
         }
       );
@@ -52,6 +53,7 @@
             buildInputs = with pkgs; [
               self.packages.${system}.opencode
               self.packages.${system}.openspec
+              self.packages.${system}.opencode-nvim
             ];
           };
         }
@@ -64,6 +66,7 @@
           opencode-version = self.packages.${system}.opencode.passthru.tests.version;
           openspec = self.packages.${system}.openspec;
           openspec-version = self.packages.${system}.openspec.passthru.tests.version;
+          opencode-nvim = self.packages.${system}.opencode-nvim;
         }
       );
     };

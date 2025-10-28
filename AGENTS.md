@@ -59,12 +59,46 @@ The package consists of two main derivations:
 
 ## Testing
 - All changes must pass `nix flake check` before commit
-- Use `scripts/update-version.sh` to automatically update OpenCode and opencode-skills to their latest versions
-- The update script handles hash updates for both packages and all dependencies (go-modules, node_modules, plugin)
-- Test OpenSpec builds independently with `nix build .#openspec`
+- Use `scripts/update-version.sh` to automatically update all packages to their latest versions:
+  - OpenCode and opencode-skills (from release tags)
+  - OpenSpec (from release tags)
+  - opencode.nvim (from main branch latest commit)
+- The update script handles hash updates for all packages and dependencies (go-modules, node_modules, plugin)
+- Test individual package builds:
+  - `nix build .#opencode` - Test OpenCode
+  - `nix build .#openspec` - Test OpenSpec
+  - `nix build .#opencode-nvim` - Test opencode.nvim
 
-## OpenCode & OpenSpec Integration
+## Package Integration
+
+### OpenCode & OpenSpec Integration
 - OpenSpec has native OpenCode support through slash commands
 - When `openspec init` runs, it creates commands in `.opencode/command/` directory
 - Commands include: `openspec-proposal`, `openspec-apply`, `openspec-archive`
 - Both packages can be used together or independently
+
+### opencode.nvim Integration
+- Neovim plugin for deep editor integration with OpenCode
+- Provides commands, keybindings, and context injection from Neovim to OpenCode
+- Can be installed via Nix in NixOS/home-manager configurations:
+  ```nix
+  programs.neovim.plugins = [ pkgs.opencode-nvim ];
+  ```
+- Or in nixvim:
+  ```nix
+  programs.nixvim.extraPlugins = [ pkgs.opencode-nvim ];
+  ```
+
+## Version Updates (continued)
+
+### Updating opencode.nvim Plugin
+When updating the opencode.nvim plugin in opencode-nvim.nix:
+1. Get the latest commit SHA from main branch: `curl -s https://api.github.com/repos/NickvanDyke/opencode.nvim/commits/main | grep '"sha"'`
+2. Get the commit date: `curl -s https://api.github.com/repos/NickvanDyke/opencode.nvim/commits/COMMIT_SHA | grep '"date"'`
+3. Update `version = "main-YYYY-MM-DD"` with the commit date
+4. Update `rev = "COMMIT_SHA"` with the new commit hash
+5. Update `hash` - use `lib.fakeHash` initially, build will show correct hash
+6. Build with `nix build .#opencode-nvim` to get the correct hash
+7. Replace `lib.fakeHash` with the correct hash from build output
+
+Note: Unlike OpenCode and OpenSpec which are TypeScript/Go applications compiled with bun, opencode.nvim is a pure Lua plugin that requires no compilation or dependencies.

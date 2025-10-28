@@ -30,6 +30,17 @@ echo -e "${GREEN}Latest OpenSpec version: ${LATEST_OPENSPEC_VERSION}${NC}"
 CURRENT_OPENSPEC_VERSION=$(grep -Po '(?<=^  version = ")[^"]+' openspec.nix | head -1)
 echo -e "Current OpenSpec version: ${CURRENT_OPENSPEC_VERSION}"
 
+echo -e "${YELLOW}Fetching latest opencode.nvim commit from GitHub...${NC}"
+
+LATEST_NVIM_COMMIT=$(curl -s https://api.github.com/repos/NickvanDyke/opencode.nvim/commits/main | jq -r '.sha')
+LATEST_NVIM_DATE=$(curl -s https://api.github.com/repos/NickvanDyke/opencode.nvim/commits/main | jq -r '.commit.committer.date' | cut -d'T' -f1)
+LATEST_NVIM_VERSION="main-${LATEST_NVIM_DATE}"
+echo -e "${GREEN}Latest opencode.nvim: ${LATEST_NVIM_VERSION} (${LATEST_NVIM_COMMIT:0:7})${NC}"
+
+CURRENT_NVIM_VERSION=$(grep -Po '(?<=^  version = ")[^"]+' opencode-nvim.nix | head -1)
+CURRENT_NVIM_COMMIT=$(grep -Po '(?<=rev = ")[^"]+' opencode-nvim.nix | head -1)
+echo -e "Current opencode.nvim: ${CURRENT_NVIM_VERSION} (${CURRENT_NVIM_COMMIT:0:7})"
+
 NEEDS_UPDATE=false
 if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
     echo -e "${YELLOW}OpenCode needs update: ${CURRENT_VERSION} → ${LATEST_VERSION}${NC}"
@@ -43,6 +54,11 @@ fi
 
 if [ "$CURRENT_OPENSPEC_VERSION" != "$LATEST_OPENSPEC_VERSION" ]; then
     echo -e "${YELLOW}OpenSpec needs update: ${CURRENT_OPENSPEC_VERSION} → ${LATEST_OPENSPEC_VERSION}${NC}"
+    NEEDS_UPDATE=true
+fi
+
+if [ "$CURRENT_NVIM_COMMIT" != "$LATEST_NVIM_COMMIT" ]; then
+    echo -e "${YELLOW}opencode.nvim needs update: ${CURRENT_NVIM_VERSION} → ${LATEST_NVIM_VERSION}${NC}"
     NEEDS_UPDATE=true
 fi
 
@@ -62,9 +78,9 @@ if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
 
     echo -e "${YELLOW}Updating OpenCode version in package.nix...${NC}"
     # Update the main version (first occurrence after 'pname = "opencode"')
-    sed -i "0,/version = \".*\";/s//version = \"${LATEST_VERSION}\";/" package.nix
+    sed -i "0,/version = \".*\";/s||version = \"${LATEST_VERSION}\";|" package.nix
     # Update the hash in fetchFromGitHub for opencode
-    sed -i "0,/hash = \"sha256-.*\";/s//hash = \"${HASH_SRI}\";/" package.nix
+    sed -i "0,/hash = \"sha256-.*\";/s||hash = \"${HASH_SRI}\";|" package.nix
 fi
 
 # Update opencode-skills plugin if needed
@@ -76,7 +92,7 @@ if [ "$CURRENT_PLUGIN_VERSION" != "$LATEST_PLUGIN_VERSION" ]; then
 
     echo -e "${YELLOW}Updating opencode-skills version in package.nix...${NC}"
     # Update opencode-skills version (in opencode-skills-plugin derivation)
-    sed -i "/opencode-skills-plugin.*=/,/version = \".*\";/s/version = \".*\";/version = \"${LATEST_PLUGIN_VERSION}\";/" package.nix
+    sed -i "/opencode-skills-plugin.*=/,/version = \".*\";/s|version = \".*\";|version = \"${LATEST_PLUGIN_VERSION}\";|" package.nix
     # Update the fetchurl url and hash for opencode-skills
     sed -i "s|https://github.com/malhashemi/opencode-skills/archive/refs/tags/v[^\"]*\.tar\.gz|https://github.com/malhashemi/opencode-skills/archive/refs/tags/v${LATEST_PLUGIN_VERSION}.tar.gz|" package.nix
     # Update the hash in the opencode-skills-plugin section (look for the second hash occurrence)
@@ -99,9 +115,25 @@ if [ "$CURRENT_OPENSPEC_VERSION" != "$LATEST_OPENSPEC_VERSION" ]; then
 
     echo -e "${YELLOW}Updating OpenSpec version in openspec.nix...${NC}"
     # Update the version (first occurrence)
-    sed -i "0,/version = \".*\";/s//version = \"${LATEST_OPENSPEC_VERSION}\";/" openspec.nix
+    sed -i "0,/version = \".*\";/s||version = \"${LATEST_OPENSPEC_VERSION}\";|" openspec.nix
     # Update the hash in fetchFromGitHub for openspec
-    sed -i "0,/hash = \"sha256-.*\";/s//hash = \"${OPENSPEC_HASH_SRI}\";/" openspec.nix
+    sed -i "0,/hash = \"sha256-.*\";/s||hash = \"${OPENSPEC_HASH_SRI}\";|" openspec.nix
+fi
+
+# Update opencode.nvim if needed
+if [ "$CURRENT_NVIM_COMMIT" != "$LATEST_NVIM_COMMIT" ]; then
+    echo -e "${YELLOW}Fetching opencode.nvim source hash...${NC}"
+    NVIM_HASH_OLD=$(nix-prefetch-url --unpack "https://github.com/NickvanDyke/opencode.nvim/archive/${LATEST_NVIM_COMMIT}.tar.gz" 2>/dev/null)
+    NVIM_HASH_SRI=$(nix hash to-sri sha256:${NVIM_HASH_OLD} 2>&1 | grep -Po 'sha256-\S+')
+    echo -e "${GREEN}New opencode.nvim hash: ${NVIM_HASH_SRI}${NC}"
+
+    echo -e "${YELLOW}Updating opencode.nvim in opencode-nvim.nix...${NC}"
+    # Update the version
+    sed -i "0,/version = \".*\";/s||version = \"${LATEST_NVIM_VERSION}\";|" opencode-nvim.nix
+    # Update the commit rev
+    sed -i "0,/rev = \".*\";/s||rev = \"${LATEST_NVIM_COMMIT}\";|" opencode-nvim.nix
+    # Update the hash
+    sed -i "0,/hash = \"sha256-.*\";/s||hash = \"${NVIM_HASH_SRI}\";|" opencode-nvim.nix
 fi
 
 echo -e "${YELLOW}Testing build (this may take a while)...${NC}"
@@ -132,11 +164,11 @@ update_hash_from_error() {
             return 0
         elif echo "$ERROR_LINE" | grep -q "opencode-node_modules"; then
             echo -e "${YELLOW}Updating opencode node_modules outputHash to: ${NEW_HASH}${NC}"
-            sed -i "0,/x86_64-linux = \".*\";/s//x86_64-linux = \"${NEW_HASH}\";/" package.nix
+            sed -i "0,/x86_64-linux = \".*\";/s||x86_64-linux = \"${NEW_HASH}\";|" package.nix
             return 0
         elif echo "$ERROR_LINE" | grep -q "openspec-node_modules"; then
             echo -e "${YELLOW}Updating openspec node_modules outputHash to: ${NEW_HASH}${NC}"
-            sed -i "0,/x86_64-linux = \".*\";/s//x86_64-linux = \"${NEW_HASH}\";/" openspec.nix
+            sed -i "0,/x86_64-linux = \".*\";/s||x86_64-linux = \"${NEW_HASH}\";|" openspec.nix
             return 0
         fi
     fi
@@ -148,7 +180,7 @@ MAX_ATTEMPTS=5
 for attempt in $(seq 1 $MAX_ATTEMPTS); do
     echo -e "${YELLOW}Build attempt ${attempt}/${MAX_ATTEMPTS}...${NC}"
     
-    # Build both packages
+    # Build all packages
     BUILD_SUCCESS=true
     if ! nix build .#opencode --no-link 2>&1 | tee /tmp/nix-build-opencode.log; then
         BUILD_SUCCESS=false
@@ -160,8 +192,13 @@ for attempt in $(seq 1 $MAX_ATTEMPTS); do
         cp /tmp/nix-build-openspec.log /tmp/nix-build.log
     fi
     
+    if ! nix build .#opencode-nvim --no-link 2>&1 | tee /tmp/nix-build-opencode-nvim.log; then
+        BUILD_SUCCESS=false
+        cp /tmp/nix-build-opencode-nvim.log /tmp/nix-build.log
+    fi
+    
     if [ "$BUILD_SUCCESS" = true ]; then
-        echo -e "${GREEN}Both packages built successfully!${NC}"
+        echo -e "${GREEN}All packages built successfully!${NC}"
         break
     else
         if [ $attempt -eq $MAX_ATTEMPTS ]; then
@@ -221,6 +258,7 @@ echo -e "${YELLOW}Don't forget to commit the changes:${NC}"
 FILES_TO_ADD=()
 [ "$CURRENT_VERSION" != "$LATEST_VERSION" ] || [ "$CURRENT_PLUGIN_VERSION" != "$LATEST_PLUGIN_VERSION" ] && FILES_TO_ADD+=("package.nix")
 [ "$CURRENT_OPENSPEC_VERSION" != "$LATEST_OPENSPEC_VERSION" ] && FILES_TO_ADD+=("openspec.nix")
+[ "$CURRENT_NVIM_COMMIT" != "$LATEST_NVIM_COMMIT" ] && FILES_TO_ADD+=("opencode-nvim.nix")
 
 if [ ${#FILES_TO_ADD[@]} -gt 0 ]; then
     echo -e "  git add ${FILES_TO_ADD[*]}"
