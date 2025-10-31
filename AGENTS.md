@@ -1,7 +1,7 @@
 # AGENTS.md - OpenCode & OpenSpec Nix Flake Development Guide
 
 ## Project Overview
-This repository packages OpenCode (terminal-based AI assistant) and OpenSpec (spec-driven development tool) as Nix flakes. Both are built from source with all dependencies properly bundled. OpenCode includes the opencode-skills plugin pre-bundled, and OpenSpec provides native integration with OpenCode through slash commands.
+This repository packages OpenCode (terminal-based AI assistant) and OpenSpec (spec-driven development tool) as Nix flakes. OpenCode 1.0.4+ uses pre-built binaries from GitHub releases. OpenSpec is built from source with all dependencies properly bundled. OpenSpec provides native integration with OpenCode through slash commands.
 
 ## Build/Test Commands
 - `nix build` - Build the OpenCode package (default)
@@ -14,20 +14,24 @@ This repository packages OpenCode (terminal-based AI assistant) and OpenSpec (sp
 
 ## Version Updates
 
-### Updating OpenCode Core
-When updating OpenCode version in package.nix:
-1. Update `version` variable (currently 0.15.18)
-2. Update git tag/hash in `fetchFromGitHub`
-3. Update `vendorHash` for Go module in `tui` component if Go dependencies changed
-4. Update `outputHash` for `node_modules` derivation (use placeholder first, let build fail to get correct hash)
+### Updating OpenCode Core (1.0.4+)
+OpenCode 1.0.4+ uses pre-built binaries from GitHub releases. When updating:
+1. Update `version` variable in package.nix (currently 1.0.4)
+2. Download and compute hashes for all platforms:
+   ```bash
+   for file in opencode-linux-x64.zip opencode-linux-arm64.zip opencode-darwin-x64.zip opencode-darwin-arm64.zip; do
+     curl -sL "https://github.com/sst/opencode/releases/download/v${VERSION}/$file" -o "$file"
+     echo "$file: $(nix hash file --type sha256 --sri $file)"
+     rm "$file"
+   done
+   ```
+3. Update all four hashes in the `hashes` attribute set
+4. Test with `nix build .#opencode && ./result/bin/opencode --version`
 
-### Updating opencode-skills Plugin
-When updating the bundled plugin in package.nix:
-1. Update `version` in `opencode-skills-plugin` derivation (currently 0.1.0)
-2. Update source `url` and `hash` in `fetchurl`
-3. Rebuild `opencode-skills-plugin` to get new `outputHash`
-4. Rebuild `node_modules` to get new `outputHash` (since plugin is copied into it)
-5. Verify plugin dependencies (gray-matter, zod) are in compiled binary with `strings result/bin/.opencode-wrapped | grep gray-matter`
+**Important Notes:**
+- The binaries must NOT be stripped (`dontStrip = true`) as stripping corrupts the embedded version string
+- Each platform (linux/darwin) and architecture (x64/arm64) has its own pre-built binary and hash
+- The binary needs HOME set to run: `HOME=$(mktemp -d) opencode --version`
 
 ## Code Style & Conventions
 - **Language**: Nix expressions with functional programming style
@@ -45,12 +49,18 @@ When updating the bundled plugin in package.nix:
 
 ## Package Structure
 
-### OpenCode (package.nix)
-The package consists of three main derivations:
-1. **tui**: Go-based terminal UI component (buildGoModule)
-2. **opencode-skills-plugin**: TypeScript plugin compiled to JavaScript (stdenvNoCC.mkDerivation)
-3. **node_modules**: OpenCode dependencies + bundled plugin (stdenvNoCC.mkDerivation with fixed-output)
-4. **Main derivation**: Combines everything and compiles to standalone binary using bun
+### OpenCode (package.nix) - Version 1.0.4+
+The package uses pre-built binaries from GitHub releases:
+1. Downloads platform-specific zip file from GitHub releases
+2. Extracts the standalone binary (built with Bun's compile feature)
+3. Applies autoPatchelfHook on Linux to fix dynamic library dependencies
+4. The binary is a complete standalone executable containing:
+   - TypeScript/JavaScript core
+   - Native @opentui/core UI components
+   - Native @parcel/watcher file watching
+   - Tree-sitter parser worker
+
+**Architecture Change:** OpenCode 1.0.4+ moved from separate Go TUI + TypeScript core to a single compiled binary built with Bun's compile feature. The official releases provide pre-built binaries for all platforms.
 
 ### OpenSpec (openspec.nix)
 The package consists of two main derivations:
@@ -60,12 +70,13 @@ The package consists of two main derivations:
 ## Testing
 - All changes must pass `nix flake check` before commit
 - Use `scripts/update-version.sh` to automatically update all packages to their latest versions:
-  - OpenCode and opencode-skills (from release tags)
+  - OpenCode (from release tags and pre-built binaries)
   - OpenSpec (from release tags)
   - opencode.nvim (from main branch latest commit)
-- The update script handles hash updates for all packages and dependencies (go-modules, node_modules, plugin)
+- The update script handles hash updates for all packages and dependencies
 - Test individual package builds:
   - `nix build .#opencode` - Test OpenCode
+  - `nix run .#opencode -- --version` - Test OpenCode execution
   - `nix build .#openspec` - Test OpenSpec
   - `nix build .#opencode-nvim` - Test opencode.nvim
 

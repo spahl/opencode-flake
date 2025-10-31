@@ -71,13 +71,11 @@ nix profile install github:aodhanhayter/opencode-flake#opencode-nvim
 This flake builds both OpenCode and OpenSpec from source, using clean, minimal derivations following nixpkgs patterns.
 
 ### OpenCode
-Builds from the [sst/opencode](https://github.com/sst/opencode) repository:
-- **Multi-component build system**:
-  - **Go TUI Component**: Builds the terminal UI (`packages/tui`) using `buildGoModule`
-  - **TypeScript Core**: Uses Bun to compile the main application logic
-- **Bundled plugins**: Includes [opencode-skills](https://github.com/malhashemi/opencode-skills) plugin pre-installed
-- **Deterministic builds**: Includes a local models patch to avoid network dependencies during build
-- **Cross-platform support**: Supports all major platforms with proper platform-specific library linking
+Uses pre-built binaries from [sst/opencode](https://github.com/sst/opencode) GitHub releases:
+- **Standalone binary**: Single compiled executable using Bun's compile feature
+- **Native components**: Includes @opentui/core UI and @parcel/watcher built-in
+- **Simple installation**: Just downloads and unpacks the official release binary
+- **Cross-platform support**: Supports Linux and macOS on x64 and ARM64 architectures
 
 ### OpenSpec
 Builds from the [Fission-AI/OpenSpec](https://github.com/Fission-AI/OpenSpec) repository:
@@ -86,21 +84,7 @@ Builds from the [Fission-AI/OpenSpec](https://github.com/Fission-AI/OpenSpec) re
 - **Spec-driven workflow**: Create proposals, implement changes, and archive completed work
 - **Cross-platform support**: Works on all major platforms
 
-### Included Plugins
 
-This package comes with the following plugins pre-installed:
-
-- **[opencode-skills](https://github.com/malhashemi/opencode-skills)** (v0.1.0): Implements Anthropic's Agent Skills Specification, allowing you to define and use custom skills with OpenCode
-
-To use the skills plugin, add it to your `opencode.json` or `~/.config/opencode/opencode.json`:
-
-```json
-{
-  "plugin": ["opencode-skills"]
-}
-```
-
-Then create skills in `.opencode/skills/`, `~/.opencode/skills/`, or `~/.config/opencode/skills/`. See the [opencode-skills documentation](https://github.com/malhashemi/opencode-skills#readme) for details.
 
 ## Development
 
@@ -135,7 +119,7 @@ This repository features **fully automated maintenance**:
 ### Manual Updates (if needed)
 
 ```bash
-# Use the update script to automatically update OpenCode and opencode-skills
+# Use the update script to automatically update OpenCode, OpenSpec, and opencode.nvim
 ./scripts/update-version.sh
 
 # Or manually with nix-update
@@ -145,7 +129,7 @@ nix-update --flake opencode
 nix build && nix flake check
 ```
 
-**Note**: The `update-version.sh` script automatically handles both OpenCode and opencode-skills plugin updates, including all necessary hash updates for dependencies. It will detect the latest versions from GitHub and update `package.nix` accordingly.
+**Note**: The `update-version.sh` script automatically handles OpenCode, OpenSpec, and opencode.nvim updates, including all necessary hash updates for dependencies. For OpenCode, it downloads all platform-specific pre-built binaries and computes their hashes. It will detect the latest versions from GitHub and update the respective package files accordingly.
 
 ## Supported Systems
 
@@ -157,10 +141,9 @@ nix build && nix flake check
 ## Repository Structure
 
 - `flake.nix`: Clean, minimal flake following nixpkgs patterns
-- `package.nix`: OpenCode package definition with source builds
+- `package.nix`: OpenCode package definition using pre-built binaries
 - `openspec.nix`: OpenSpec package definition with TypeScript compilation
 - `opencode-nvim.nix`: opencode.nvim Neovim plugin package definition
-- `local-models-dev.patch`: Patch for deterministic builds with local models
 - `.github/workflows/`: Automated CI/CD workflows
 - `scripts/`: Update and maintenance scripts
 - `AGENTS.md`: Comprehensive development guide for contributors
