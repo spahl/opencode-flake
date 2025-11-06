@@ -6,13 +6,13 @@
 
 vimUtils.buildVimPlugin {
   pname = "opencode-nvim";
-  version = "main-2025-11-04";
+  version = "main-2025-11-05";
   
   src = fetchFromGitHub {
     owner = "NickvanDyke";
     repo = "opencode.nvim";
-    rev = "520696692b7ce6907068aa07690fcf8cbbd172e8";
-    hash = "sha256-f41Y2lHXGIZf08EnxUM+oFpV4MAH7YyI9tNxSFgWTA0=";
+    rev = "87cda19e743c0475f94bb5970dfe0d2816792c68";
+    hash = "sha256-ztxCzAAZ/BirUOP8aqFWflhfxAN6dIrPK75prmt0Pw4=";
   };
 
   meta = {
