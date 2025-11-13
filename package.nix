@@ -10,7 +10,7 @@
 }:
 
 let
-  version = "1.0.61";
+  version = "1.0.62";
   
   # Map Nix system to OpenCode platform naming
   platformMap = {
@@ -34,10 +34,10 @@ let
 
   # Platform-specific hashes for the pre-built binaries
   hashes = {
-    "x86_64-linux" = "sha256-pWFf9nTn3xGzyjfxiaISWDsnK1JaObAKohiDt5si5ew=";
-    "aarch64-linux" = "sha256-YNwfTBUcxXqDOtg0LzPfTHQBYmh56MFVWFOlGu9ipmU=";
-    "x86_64-darwin" = "sha256-e6JDGqHet3OnNCwweNALi9uDUJOZLb7xipO484lRZj8=";
-    "aarch64-darwin" = "sha256-AO6Em14/Wcy3IdLy8mu97pze3Ibl6Y+AaBqELS3kT1Y=";
+    "x86_64-linux" = "sha256-VZ2o4bpjRcTrypm16rDedDUJ31izrUA0I2Nx9YbYAww=";
+    "aarch64-linux" = "sha256-Bi2CD1adMk2ARcEn3FpJICEh7vTwB5bNnZ3k8e/mdb8=";
+    "x86_64-darwin" = "sha256-XLfxscz28DgHIaZOo6O4i6gZ2yqUB7Az+934eZEjkCo=";
+    "aarch64-darwin" = "sha256-posfGixyBVfU1EMhshUDfdpKI1jF805CvLQ0wUWdbEE=";
   };
 
   system = stdenvNoCC.hostPlatform.system;
