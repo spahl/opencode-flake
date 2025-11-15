@@ -27,11 +27,14 @@
     {
       packages = forEachSystem (
         { pkgs, system }:
-        {
+        let
           opencode = pkgs.callPackage ./package.nix { };
           openspec = pkgs.callPackage ./openspec.nix { };
-          opencode-nvim = pkgs.callPackage ./opencode-nvim.nix { };
-          default = self.packages.${system}.opencode;
+        in
+        {
+          inherit opencode openspec;
+          opencode-nvim = pkgs.callPackage ./opencode-nvim.nix { inherit opencode; };
+          default = opencode;
         }
       );
 
