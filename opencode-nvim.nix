@@ -11,7 +11,7 @@
 }:
 
 vimUtils.buildVimPlugin {
-  pname = "opencode-nvim";
+  pname = "opencode.nvim";
   version = "main-2025-11-10";
 
   src = fetchFromGitHub {
